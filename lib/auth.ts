@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { db } from "./db";
+import { exec, one } from "./db";
 
 export type Role = "admin" | "editor" | "author";
 export type User = { id: number; name: string; email: string; role: Role; status: string; bio: string };
@@ -31,8 +31,8 @@ export function verifyPassword(password: string, stored: string) {
 export async function createSession(userId: number) {
   const token = randomBytes(32).toString("hex");
   const expires = Date.now() + SESSION_DAYS * 86400_000;
-  db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
-  db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)").run(sha256(token), userId, expires);
+  await exec("DELETE FROM sessions WHERE expires_at < $1", [Date.now()]);
+  await exec("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)", [sha256(token), userId, expires]);
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -45,19 +45,18 @@ export async function createSession(userId: number) {
 export async function destroySession() {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
-  if (token) db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(sha256(token));
+  if (token) await exec("DELETE FROM sessions WHERE token_hash = $1", [sha256(token)]);
   jar.delete(COOKIE);
 }
 
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
-  const row = db
-    .prepare(
-      `SELECT u.id, u.name, u.email, u.role, u.status, u.bio FROM sessions s
-       JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?`,
-    )
-    .get(sha256(token), Date.now()) as User | undefined;
+  const row = await one<User>(
+    `SELECT u.id, u.name, u.email, u.role, u.status, u.bio FROM sessions s
+     JOIN users u ON u.id = s.user_id WHERE s.token_hash = $1 AND s.expires_at > $2`,
+    [sha256(token), Date.now()],
+  );
   return row && row.status === "active" ? row : null;
 });
 

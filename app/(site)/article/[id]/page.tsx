@@ -23,7 +23,7 @@ import { absoluteUrl } from "@/lib/seo";
 type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const a = getPublishedArticle(Number((await params).id));
+  const a = await getPublishedArticle(Number((await params).id));
   if (!a) return {};
   return {
     title: a.title,
@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArticlePage({ params }: Props) {
   const id = Number((await params).id);
-  const a = getPublishedArticle(id);
+  const a = await getPublishedArticle(id);
   if (!a) notFound();
   const h = await headers();
   if (
@@ -54,15 +54,15 @@ export default async function ArticlePage({ params }: Props) {
     h.get("purpose") !== "prefetch" &&
     !/bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|preview/i.test(h.get("user-agent") ?? "")
   ) {
-    incrementViews(id);
+    await incrementViews(id);
   }
 
-  const tags = getArticleTags(a.id);
-  const related = relatedArticles(a, 3);
-  const { prev, next } = adjacentArticles(a);
-  const popular = mostViewed(5, a.id);
-  const latest = listArticles({ publicOnly: true, excludeIds: [a.id], limit: 5 }).rows;
-  const author = a.author_id ? getAuthor(a.author_id) : undefined;
+  const tags = await getArticleTags(a.id);
+  const related = await relatedArticles(a, 3);
+  const { prev, next } = await adjacentArticles(a);
+  const popular = await mostViewed(5, a.id);
+  const latest = (await listArticles({ publicOnly: true, excludeIds: [a.id], limit: 5 })).rows;
+  const author = a.author_id ? await getAuthor(a.author_id) : undefined;
   const words = a.body.split(/\s+/).filter(Boolean).length;
   const minutes = Math.max(1, Math.round(words / 200));
   const updated = a.published_at && new Date(a.updated_at).getTime() - new Date(a.published_at).getTime() > 3600_000;
@@ -162,7 +162,7 @@ export default async function ArticlePage({ params }: Props) {
                 </h3>
                 {author.bio && <p className="muted">{author.bio}</p>}
                 <Link href={`/author/${author.id}`} className="link">
-                  {authorPublishedCount(author.id)} مقالاً منشوراً ‹
+                  {await authorPublishedCount(author.id)} مقالاً منشوراً ‹
                 </Link>
               </div>
             </div>

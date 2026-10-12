@@ -6,7 +6,7 @@ import { sitemapArticles, sitemapAuthors, sitemapCategories, sitemapTags } from 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const staticPages = ["", ...infoPages.map((p) => `/${p.slug}`)];
   const entries: MetadataRoute.Sitemap = staticPages.map((path) => ({
@@ -16,26 +16,28 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: path ? 0.4 : 1,
   }));
 
+  const [cats, arts, auths, tags] = await Promise.all([sitemapCategories(), sitemapArticles(), sitemapAuthors(), sitemapTags()]);
+
   entries.push(
-    ...sitemapCategories().map((c) => ({
+    ...cats.map((c) => ({
       url: absoluteUrl(`/category/${c.slug}`),
       lastModified: now,
       changeFrequency: "daily" as const,
       priority: 0.7,
     })),
-    ...sitemapArticles().map((a) => ({
+    ...arts.map((a) => ({
       url: absoluteUrl(`/article/${a.id}`),
       lastModified: a.updated_at,
       changeFrequency: "weekly" as const,
       priority: 0.8,
     })),
-    ...sitemapAuthors().map((a) => ({
+    ...auths.map((a) => ({
       url: absoluteUrl(`/author/${a.id}`),
       lastModified: a.updated_at,
       changeFrequency: "weekly" as const,
       priority: 0.4,
     })),
-    ...sitemapTags().map((t) => ({
+    ...tags.map((t) => ({
       url: absoluteUrl(`/tag/${t.id}`),
       lastModified: t.updated_at,
       changeFrequency: "weekly" as const,

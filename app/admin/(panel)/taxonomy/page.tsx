@@ -1,6 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { getCategories, getTags } from "@/lib/queries";
-import { db } from "@/lib/db";
+import { categoryArticleCounts, getCategories, getTags } from "@/lib/queries";
 import { createTags, deleteCategory, deleteTag, renameTag, saveCategory } from "../../actions";
 import Notice from "@/components/admin/Notice";
 
@@ -11,9 +10,7 @@ export const metadata = { title: "التصنيفات والوسوم" };
 export default async function TaxonomyPage({ searchParams }: Props) {
   await requireUser(["admin", "editor"]);
   const sp = await searchParams;
-  const counts = Object.fromEntries(
-    (db.prepare("SELECT category_id, COUNT(*) AS n FROM articles GROUP BY category_id").all() as { category_id: number; n: number }[]).map((r) => [r.category_id, r.n]),
-  );
+  const [cats, tagList, counts] = await Promise.all([getCategories(), getTags(), categoryArticleCounts()]);
 
   return (
     <>
@@ -25,7 +22,7 @@ export default async function TaxonomyPage({ searchParams }: Props) {
           <h2>التصنيفات (الأقسام)</h2>
         </div>
         <div className="rows">
-          {getCategories().map((c) => (
+          {cats.map((c) => (
             <form key={c.id} action={saveCategory} className="inline-form">
               <input type="hidden" name="id" value={c.id} />
               <input name="name" defaultValue={c.name} required maxLength={60} aria-label="الاسم" />
@@ -55,7 +52,7 @@ export default async function TaxonomyPage({ searchParams }: Props) {
           <h2>الوسوم</h2>
         </div>
         <ul className="tag-list">
-          {getTags().map((t) => (
+          {tagList.map((t) => (
             <li key={t.id}>
               <form action={renameTag} className="inline-form">
                 <input type="hidden" name="id" value={t.id} />

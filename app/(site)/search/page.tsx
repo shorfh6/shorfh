@@ -15,7 +15,7 @@ export default async function SearchPage({ searchParams }: Props) {
   const sp = await searchParams;
   const q = (sp.q ?? "").slice(0, 100);
   const page = Math.max(1, Number(sp.page) || 1);
-  const { rows, total } = listArticles({ publicOnly: true, q, limit: PER_PAGE, offset: (page - 1) * PER_PAGE });
+  const { rows, total } = await listArticles({ publicOnly: true, q, limit: PER_PAGE, offset: (page - 1) * PER_PAGE });
 
   return (
     <main className="wrap">

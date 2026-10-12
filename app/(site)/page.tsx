@@ -6,8 +6,8 @@ import Banner from "@/components/Banner";
 import { homeData } from "@/lib/queries";
 import { imageUrl } from "@/lib/format";
 
-export default function Home() {
-  const { featured: hero, secondary, latest, exclusives } = homeData();
+export default async function Home() {
+  const { featured: hero, secondary, latest, exclusives } = await homeData();
 
   return (
     <>

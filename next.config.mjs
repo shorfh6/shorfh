@@ -2,6 +2,7 @@
 const nextConfig = {
 	reactStrictMode: true,
 	devIndicators: false,
+	serverExternalPackages: ["pg"],
 	async headers() {
 		const headers = [
 			{ key: "X-Content-Type-Options", value: "nosniff" },

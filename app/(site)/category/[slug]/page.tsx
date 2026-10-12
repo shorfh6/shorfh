@@ -12,7 +12,7 @@ const PER_PAGE = 12;
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug } = await params;
   const page = Math.max(1, Number((await searchParams).page) || 1);
-  const category = getCategoryBySlug(slug);
+  const category = await getCategoryBySlug(slug);
   if (!category) return {};
   return {
     title: category.name,
@@ -24,10 +24,10 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function CategoryPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const category = getCategoryBySlug(slug);
+  const category = await getCategoryBySlug(slug);
   if (!category) notFound();
   const page = Math.max(1, Number((await searchParams).page) || 1);
-  const { rows, total } = listArticles({ publicOnly: true, categorySlug: slug, limit: PER_PAGE, offset: (page - 1) * PER_PAGE });
+  const { rows, total } = await listArticles({ publicOnly: true, categorySlug: slug, limit: PER_PAGE, offset: (page - 1) * PER_PAGE });
 
   return (
     <main className="wrap">

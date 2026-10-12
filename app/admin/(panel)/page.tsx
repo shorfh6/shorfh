@@ -11,10 +11,10 @@ export default async function Dashboard({ searchParams }: Props) {
   const user = await requireUser();
   const sp = await searchParams;
   const reviewer = canReview(user.role);
-  const s = dashboardStats(reviewer ? undefined : user.id);
-  const pending = reviewer ? listArticles({ status: "pending", limit: 6, order: "updated" }).rows : [];
-  const mine = !reviewer ? listArticles({ authorId: user.id, limit: 6, order: "updated" }).rows : [];
-  const activity = user.role === "admin" ? recentActivity(8) : [];
+  const s = await dashboardStats(reviewer ? undefined : user.id);
+  const pending = reviewer ? (await listArticles({ status: "pending", limit: 6, order: "updated" })).rows : [];
+  const mine = !reviewer ? (await listArticles({ authorId: user.id, limit: 6, order: "updated" })).rows : [];
+  const activity = user.role === "admin" ? await recentActivity(8) : [];
   const total = Object.values(s.byStatus).reduce((a, b) => a + b, 0);
   const max = Math.max(1, ...s.perCategory.map((c) => c.n));
 

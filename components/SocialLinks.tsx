@@ -1,7 +1,7 @@
 import { visibleSocialLinks } from "@/lib/queries";
 
-export default function SocialLinks() {
-  const links = visibleSocialLinks();
+export default async function SocialLinks() {
+  const links = await visibleSocialLinks();
   if (!links.length) return null;
   return (
     <nav className="social" aria-label="حسابات التواصل الاجتماعي">

@@ -5,3 +5,4 @@ tsconfig.tsbuildinfo
 data/
 .env*
 !.env.example
+.seed-password.local

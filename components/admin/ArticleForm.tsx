@@ -13,8 +13,8 @@ type Props = {
     image: string;
     category_id: number;
     author_id: number | null;
-    featured: number;
-    exclusive: number;
+    featured: boolean;
+    exclusive: boolean;
     status: string;
   };
   categories: { id: number; name: string }[];

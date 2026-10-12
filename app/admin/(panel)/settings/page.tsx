@@ -10,7 +10,7 @@ export const metadata = { title: "إعدادات الموقع" };
 export default async function SettingsPage({ searchParams }: Props) {
   await requireUser(["admin"]);
   const sp = await searchParams;
-  const links = getSocialLinks();
+  const links = await getSocialLinks();
 
   return (
     <>

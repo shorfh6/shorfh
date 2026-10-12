@@ -1,18 +1,29 @@
 # شُرفة
 
-موقع إخباري عربي مبني بـ **Next.js (App Router)** مع لوحة تحكم لإدارة الأخبار والتصنيفات والمستخدمين. يستخدم **SQLite** (عبر better-sqlite3) للتخزين ولا يحتاج إلى خادم قاعدة بيانات منفصل.
+موقع إخباري عربي مبني بـ **Next.js (App Router)** مع لوحة تحكم لإدارة الأخبار والتصنيفات والمستخدمين. يستخدم **PostgreSQL** (Supabase أو أي خادم PostgreSQL) و**Supabase Storage** لتخزين صور الأخبار.
 
 ## المتطلبات
 
-- Node.js 20 أو أحدث
+- Node.js 20 أو أحدث (يوصى بـ Node 22 — ملف `.node-version` مضمّن)
+- قاعدة بيانات PostgreSQL (مشروع [Supabase](https://supabase.com) مجاني يكفي)
+- حاوية Supabase Storage خاصة لصور الأخبار (تُنشأ عبر `npm run setup:storage`)
 
 ## التثبيت والتشغيل
 
 ```bash
 npm install
 
-# تهيئة قاعدة البيانات وبيانات تجريبية (كلمة المرور: 12 حرفاً على الأقل)
-ADMIN_PASSWORD=your-password npm run seed
+# انسخ متغيرات البيئة وعدّلها
+cp .env.example .env.local
+
+# إنشاء الجداول في PostgreSQL (idempotent — يمكن تكراره بأمان)
+npm run migrate
+
+# (Supabase فقط) إنشاء حاوية التخزين الخاصة
+npm run setup:storage
+
+# بيانات تجريبية للتطوير (كلمة المرور: 12 حرفاً على الأقل)
+ADMIN_PASSWORD=your-password npm run seed -- --demo-articles
 
 # التشغيل في وضع التطوير على المنفذ 3001
 npm run dev
@@ -21,7 +32,7 @@ npm run dev
 للإنتاج:
 
 ```bash
-npm run build && npm start
+npm run build && npm start   # npm start يشغّل المهاجرات أولاً ثم next start
 ```
 
 ## الحسابات التجريبية
@@ -36,18 +47,62 @@ npm run build && npm start
 | noura@shurfa.local     | كاتبة  |
 | faisal@shurfa.local    | كاتب   |
 
-لوحة التحكم على `/admin`.
+لوحة التحكم على `/admin`. بذر البيانات التجريبية معطّل في الإنتاج (`NODE_ENV=production`).
 
 ## متغيرات البيئة
 
 راجع `.env.example`:
 
-- `SITE_URL` — رابط الموقع العام (canonical، sitemap، OG). افتراضياً `http://localhost:3001` أو `VERCEL_URL`.
+- `DATABASE_URL` — عنوان اتصال PostgreSQL. في Supabase استخدم **Session Pooler** (المنفذ 5432) وأضف `?sslmode=require`.
+- `DATABASE_SSL` — اتركه غير مضبوط (الافتراضي: TLS بلا تحقق صارم)؛ عيّنه `false` فقط لقاعدة محلية بلا TLS.
+- `SUPABASE_URL` — عنوان مشروع Supabase.
+- `SUPABASE_SERVICE_ROLE_KEY` — مفتاح الخدمة، **للخادم فقط**؛ لا تستخدمه أبداً مع `NEXT_PUBLIC_`.
+- `SUPABASE_STORAGE_BUCKET` — اسم الحاوية (الافتراضي `article-images`).
+- `SITE_URL` — رابط الموقع العام (canonical، sitemap، OG).
 - `ADMIN_PASSWORD` — كلمة مرور حسابات البذرة، مطلوبة فقط عند تشغيل `npm run seed`.
 - `NODE_ENV=production` — يفعّل HSTS وملفات تعريف الارتباط الآمنة.
 
-## البيانات
+دون متغيري Supabase يعمل التخزين محلياً على `data/uploads/` (وضع التطوير فقط؛ الإنتاج يتطلب Supabase Storage).
 
-- قاعدة البيانات والصور المرفوعة محفوظة في مجلد `data/` (`data/shurfa.db` و`data/uploads/`).
-- مجلد `data/` مستثنى من Git (`.gitignore`) — **يجب نسخه احتياطياً بشكل منفصل** في الإنتاج.
-- لإعادة تهيئة قاعدة البيانات من الصفر: `npm run seed:reset` (تحذير: يمسح كل البيانات).
+## ترحيل البيانات من SQLite
+
+إن كانت لديك نسخة سابقة تعمل على `data/shurfa.db`:
+
+```bash
+# معاينة العدّات دون كتابة
+node scripts/migrate-sqlite-to-pg.mjs --dry-run
+
+# نسخ المستخدمين والتصنيفات والوسوم وروابط التواصل
+npm run migrate:data
+
+# + الأخبار والوسوم المرتبطة وسجل النشاط
+node scripts/migrate-sqlite-to-pg.mjs --articles
+
+# + رفع الصور المحلية من data/uploads إلى Supabase Storage
+node scripts/migrate-sqlite-to-pg.mjs --articles --images
+```
+
+- يحافظ على المعرفات ويعيد ضبط الـ sequences تلقائياً.
+- **لا ينقل الجلسات (`sessions`) إطلاقاً** — على المستخدمين تسجيل الدخول من جديد.
+- يفشل إن كان الهدف يحوي مستخدمين إلا مع `--force` (يدرج الصفوف غير الموجودة فقط).
+- ملف `data/shurfa.db` يُقرأ للقراءة فقط ولا يُعدّل.
+
+## النشر على Render
+
+1. ادفع الفرع إلى GitHub.
+2. في Supabase: أنشئ مشروعاً، خذ `DATABASE_URL` (Session Pooler، المنفذ 5432 + `sslmode=require`) و`SUPABASE_URL` ومفتاح `service_role`.
+3. أنشئ حاوية التخزين: شغّل `npm run setup:storage` محلياً مع المتغيرات مضبوطة، أو أنشئ حاوية خاصة `article-images` من لوحة Supabase.
+4. في Render: **New → Blueprint** واختر المستودع — `render.yaml` يعرف الخدمة (`healthCheckPath: /api/health`).
+5. عيّن المتغيرات السرية: `DATABASE_URL`، `SUPABASE_URL`، `SUPABASE_SERVICE_ROLE_KEY`، `SITE_URL`.
+6. أول نشر: `npm ci && npm run build` ثم `npm start` يشغّل `scripts/migrate.mjs` تلقائياً قبل `next start`.
+
+## أمان
+
+- كل الجداول تفعّل **Row Level Security** بدون سياسات: واجهة Supabase Data API (PostgREST) لا ترى أي بيانات؛ اتصال `DATABASE_URL` يستخدم دور postgres ويتجاوز RLS.
+- مفتاح `service_role` يبقى على الخادم فقط (Server Actions وRoute Handlers).
+- حاوية الصور **خاصة**؛ صور الأخبار المنشورة تُقدَّم عبر مسار التطبيق `/uploads/[name]` بعد فحص الحالة في قاعدة البيانات.
+
+## البيانات المحلية
+
+- مجلد `data/` مستثنى من Git (`.gitignore`) — يحوي قاعدة SQLite القديمة وملفات `data/uploads/` المستخدمة في التطوير والترحيل. **لا تحذفه**.
+- قاعدة الإنتاج هي PostgreSQL فقط؛ ملف `data/shurfa.db` بقي للترحيل التاريخي.

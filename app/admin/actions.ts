@@ -3,8 +3,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { randomBytes } from "node:crypto";
-import { unlink, writeFile } from "node:fs/promises";
-import path from "node:path";
 import {
   canDeleteArticle,
   canEditArticle,
@@ -15,9 +13,10 @@ import {
   requireUser,
   verifyPassword,
 } from "@/lib/auth";
-import { db, UPLOAD_DIR } from "@/lib/db";
+import { exec, one, tx, type Q } from "@/lib/db";
 import { getArticle, logActivity } from "@/lib/queries";
 import { PLATFORMS } from "@/lib/social";
+import { deleteImage, putImage } from "@/lib/storage";
 
 const str = (fd: FormData, k: string, max: number) => String(fd.get(k) ?? "").trim().slice(0, max);
 const num = (fd: FormData, k: string) => Number(fd.get(k)) || 0;
@@ -49,15 +48,16 @@ export async function login(_prev: { error?: string } | undefined, fd: FormData)
   }
   if (window.count >= MAX_LOGINS_PER_MINUTE) return { error: "محاولات كثيرة، حاول مرة أخرى بعد دقيقة" };
 
-  const user = db.prepare("SELECT id, password_hash, status FROM users WHERE email = ?").get(email) as
-    | { id: number; password_hash: string; status: string }
-    | undefined;
+  const user = await one<{ id: number; password_hash: string; status: string }>(
+    "SELECT id, password_hash, status FROM users WHERE email = $1",
+    [email],
+  );
   const ok = verifyPassword(password, user?.password_hash ?? DUMMY_HASH) && user && user.status === "active";
   if (!ok || !user) {
     window.count++;
     return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
   }
-  db.prepare("UPDATE users SET last_login = ? WHERE id = ?").run(now(), user.id);
+  await exec("UPDATE users SET last_login = $1 WHERE id = $2", [now(), user.id]);
   await createSession(user.id);
   redirect("/admin");
 }
@@ -71,6 +71,8 @@ export async function logout() {
 
 export type ArticleFormState = { error?: string; values?: Record<string, string>; tagIds?: number[] } | undefined;
 
+const MIME_BY_EXT: Record<string, string> = { ".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" };
+
 async function saveUpload(file: File): Promise<string | null> {
   if (file.size === 0) return "";
   if (file.size > 5 * 1024 * 1024) return null;
@@ -81,36 +83,39 @@ async function saveUpload(file: File): Promise<string | null> {
   else if (buf.subarray(0, 4).toString() === "RIFF" && buf.subarray(8, 12).toString() === "WEBP") ext = ".webp";
   if (!ext) return null;
   const name = `${randomBytes(12).toString("hex")}${ext}`;
-  await writeFile(path.join(/*turbopackIgnore: true*/ UPLOAD_DIR, name), buf);
+  await putImage(name, buf, MIME_BY_EXT[ext]);
   return name;
 }
 
 async function removeUploadIfUnused(name: string) {
   if (!name || /^https?:\/\//.test(name) || !/^[\w.-]+$/.test(name)) return;
-  if (db.prepare("SELECT 1 FROM articles WHERE image = ?").get(name)) return;
+  if (await one("SELECT 1 FROM articles WHERE image = $1", [name])) return;
   try {
-    await unlink(path.join(/*turbopackIgnore: true*/ UPLOAD_DIR, name));
+    await deleteImage(name);
   } catch {}
 }
 
-function syncTags(articleId: number, tagIds: number[], newTags: string) {
-  const ids = new Set(tagIds.filter((id) => db.prepare("SELECT 1 FROM tags WHERE id = ?").get(id)));
+async function syncTags(q: Q, articleId: number, tagIds: number[], newTags: string) {
+  const ids = new Set<number>();
+  for (const id of tagIds) {
+    if (await q.one("SELECT 1 FROM tags WHERE id = $1", [id])) ids.add(id);
+  }
   for (const raw of newTags.split(/[,،]/)) {
     const name = raw.trim().replace(/^#/, "").slice(0, 40);
     if (!name) continue;
-    db.prepare("INSERT OR IGNORE INTO tags (name) VALUES (?)").run(name);
-    ids.add((db.prepare("SELECT id FROM tags WHERE name = ?").get(name) as { id: number }).id);
+    await q.exec("INSERT INTO tags (name) VALUES ($1) ON CONFLICT (name) DO NOTHING", [name]);
+    const row = await q.one<{ id: number }>("SELECT id FROM tags WHERE name = $1", [name]);
+    if (row) ids.add(row.id);
   }
-  db.prepare("DELETE FROM article_tags WHERE article_id = ?").run(articleId);
-  const ins = db.prepare("INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)");
-  ids.forEach((t) => ins.run(articleId, t));
+  await q.exec("DELETE FROM article_tags WHERE article_id = $1", [articleId]);
+  for (const t of ids) await q.exec("INSERT INTO article_tags (article_id, tag_id) VALUES ($1, $2)", [articleId, t]);
 }
 
 export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promise<ArticleFormState> {
   const user = await requireUser();
   const id = num(fd, "id");
   const intent = str(fd, "intent", 20);
-  const existing = id ? getArticle(id) : undefined;
+  const existing = id ? await getArticle(id) : undefined;
   if (id && !existing) redirect("/admin/articles?e=notfound");
   if (existing && !canEditArticle(user, existing)) redirect("/admin/articles?e=forbidden");
 
@@ -131,7 +136,7 @@ export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promis
   if (!values.title) return fail("العنوان مطلوب");
   if (!values.body) return fail("نص الخبر مطلوب");
   const categoryId = Number(values.category);
-  if (!db.prepare("SELECT 1 FROM categories WHERE id = ?").get(categoryId)) return fail("اختر تصنيفاً صحيحاً");
+  if (!(await one("SELECT 1 FROM categories WHERE id = $1", [categoryId]))) return fail("اختر تصنيفاً صحيحاً");
 
   let image = values.image;
   if (image && !/^https:\/\//.test(image) && !/^[\w.-]+\.(jpg|png|webp)$/i.test(image)) return fail("رابط الصورة يجب أن يبدأ بـ https");
@@ -144,7 +149,7 @@ export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promis
 
   const reviewer = canReview(user.role);
   let authorId = existing?.author_id ?? user.id;
-  if (reviewer && db.prepare("SELECT 1 FROM users WHERE id = ?").get(Number(values.author))) authorId = Number(values.author);
+  if (reviewer && (await one("SELECT 1 FROM users WHERE id = $1", [Number(values.author)]))) authorId = Number(values.author);
 
   let status: string = existing?.status ?? "draft";
   let publishedAt = existing?.published_at ?? null;
@@ -156,65 +161,66 @@ export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promis
     status = intent === "submit" ? "pending" : "draft";
   }
   if (status === "published" && !publishedAt) publishedAt = now();
-  const featured = reviewer ? (values.featured ? 1 : 0) : (existing?.featured ?? 0);
-  const exclusive = reviewer ? (values.exclusive ? 1 : 0) : (existing?.exclusive ?? 0);
+  const featured = reviewer ? !!values.featured : (existing?.featured ?? false);
+  const exclusive = reviewer ? !!values.exclusive : (existing?.exclusive ?? false);
   const rejectReason = status === "draft" || status === "rejected" ? (existing?.reject_reason ?? "") : "";
 
   let articleId = id;
-  const run = db.transaction(() => {
+  await tx(async (q) => {
     if (existing) {
-      db.prepare(
-        `UPDATE articles SET title=?, excerpt=?, body=?, image=?, category_id=?, author_id=?, status=?, featured=?, exclusive=?,
-         reject_reason=?, published_at=?, updated_at=? WHERE id=?`,
-      ).run(values.title, values.excerpt, values.body, image, categoryId, authorId, status, featured, exclusive, rejectReason, publishedAt, now(), id);
-    } else {
-      articleId = Number(
-        db
-          .prepare(
-            `INSERT INTO articles (title, excerpt, body, image, category_id, author_id, status, featured, exclusive, published_at, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          )
-          .run(values.title, values.excerpt, values.body, image, categoryId, authorId, status, featured, exclusive, publishedAt, now(), now()).lastInsertRowid,
+      await q.exec(
+        `UPDATE articles SET title=$1, excerpt=$2, body=$3, image=$4, category_id=$5, author_id=$6, status=$7, featured=$8, exclusive=$9,
+         reject_reason=$10, published_at=$11, updated_at=$12 WHERE id=$13`,
+        [values.title, values.excerpt, values.body, image, categoryId, authorId, status, featured, exclusive, rejectReason, publishedAt, now(), id],
       );
+    } else {
+      const row = await q.one<{ id: number }>(
+        `INSERT INTO articles (title, excerpt, body, image, category_id, author_id, status, featured, exclusive, published_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+        [values.title, values.excerpt, values.body, image, categoryId, authorId, status, featured, exclusive, publishedAt, now(), now()],
+      );
+      articleId = row?.id ?? 0;
     }
-    syncTags(articleId, tagIds, values.newTags);
+    await syncTags(q, articleId, tagIds, values.newTags);
   });
-  run();
   if (existing && existing.image && existing.image !== image) await removeUploadIfUnused(existing.image);
 
-  logActivity(user, existing ? "عدّل الخبر" : "أنشأ الخبر", values.title);
+  await logActivity(user, existing ? "عدّل الخبر" : "أنشأ الخبر", values.title);
   redirect(`/admin/articles/${articleId}?m=${status === "pending" && !reviewer ? "submitted" : existing ? "saved" : "created"}`);
 }
 
 export async function approveArticle(fd: FormData) {
   const user = await requireUser(["admin", "editor"]);
-  const a = getArticle(num(fd, "id"));
+  const a = await getArticle(num(fd, "id"));
   if (!a) redirect("/admin/articles?e=notfound");
-  db.prepare("UPDATE articles SET status='published', published_at=COALESCE(published_at, ?), reject_reason='', updated_at=? WHERE id=?").run(now(), now(), a.id);
-  logActivity(user, "اعتمد الخبر", a.title);
+  await exec(
+    "UPDATE articles SET status='published', published_at=COALESCE(published_at, $1), reject_reason='', updated_at=$2 WHERE id=$3",
+    [now(), now(), a.id],
+  );
+  await logActivity(user, "اعتمد الخبر", a.title);
   const back = String(fd.get("back") ?? "");
   redirect(`${back.startsWith("/admin/") && !back.includes("?") ? back : "/admin/articles"}?m=approved`);
 }
 
 export async function rejectArticle(fd: FormData) {
   const user = await requireUser(["admin", "editor"]);
-  const a = getArticle(num(fd, "id"));
+  const a = await getArticle(num(fd, "id"));
   if (!a) redirect("/admin/articles?e=notfound");
   const reason = str(fd, "reason", 500);
   if (!reason) redirect(`/admin/articles/${a.id}?e=reason`);
-  db.prepare("UPDATE articles SET status='rejected', reject_reason=?, updated_at=? WHERE id=?").run(reason, now(), a.id);
-  logActivity(user, "رفض الخبر", a.title);
+  await exec("UPDATE articles SET status='rejected', reject_reason=$1, updated_at=$2 WHERE id=$3", [reason, now(), a.id]);
+  await logActivity(user, "رفض الخبر", a.title);
   redirect("/admin/articles?m=rejected");
 }
 
 export async function deleteArticle(fd: FormData) {
   const user = await requireUser();
-  const a = getArticle(num(fd, "id"));
+  const a = await getArticle(num(fd, "id"));
   if (!a) redirect("/admin/articles?e=notfound");
   if (!canDeleteArticle(user, a)) redirect("/admin/articles?e=forbidden");
-  db.prepare("DELETE FROM articles WHERE id = ?").run(a.id);
+  await exec("DELETE FROM articles WHERE id = $1", [a.id]);
   await removeUploadIfUnused(a.image);
-  logActivity(user, "حذف الخبر", a.title);
+  await logActivity(user, "حذف الخبر", a.title);
   redirect("/admin/articles?m=deleted");
 }
 
@@ -222,8 +228,9 @@ export async function deleteArticle(fd: FormData) {
 
 const ROLES = ["admin", "editor", "author"];
 
-const activeAdmins = (excludeId: number) =>
-  (db.prepare("SELECT COUNT(*) AS n FROM users WHERE role='admin' AND status='active' AND id != ?").get(excludeId) as { n: number }).n;
+const activeAdmins = async (excludeId: number) =>
+  (await one<{ n: number }>("SELECT COUNT(*)::int AS n FROM users WHERE role='admin' AND status='active' AND id != $1", [excludeId]))
+    ?.n ?? 0;
 
 export async function createUser(fd: FormData) {
   const me = await requireUser(["admin"]);
@@ -235,20 +242,28 @@ export async function createUser(fd: FormData) {
   if (password.length < 12) redirect("/admin/users?e=weak");
   if (Buffer.byteLength(password, "utf8") > 1024) redirect("/admin/users?e=long");
   try {
-    db.prepare("INSERT INTO users (name, email, password_hash, role, bio, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
-      name, email, hashPassword(password), role, str(fd, "bio", 500), now(),
-    );
-  } catch {
-    redirect("/admin/users?e=email");
+    await exec("INSERT INTO users (name, email, password_hash, role, bio) VALUES ($1, $2, $3, $4, $5)", [
+      name,
+      email,
+      hashPassword(password),
+      role,
+      str(fd, "bio", 500),
+    ]);
+  } catch (e) {
+    if ((e as { code?: string }).code === "23505") redirect("/admin/users?e=email");
+    throw e;
   }
-  logActivity(me, "أضاف مستخدماً", name);
+  await logActivity(me, "أضاف مستخدماً", name);
   redirect("/admin/users?m=created");
 }
 
 export async function updateUser(fd: FormData) {
   const me = await requireUser(["admin"]);
   const id = num(fd, "id");
-  const target = db.prepare("SELECT id, role, status, name FROM users WHERE id = ?").get(id) as { id: number; role: string; status: string; name: string } | undefined;
+  const target = await one<{ id: number; role: string; status: string; name: string }>(
+    "SELECT id, role, status, name FROM users WHERE id = $1",
+    [id],
+  );
   if (!target) redirect("/admin/users?e=notfound");
   const back = `/admin/users/${id}`;
   const name = str(fd, "name", 80);
@@ -257,30 +272,39 @@ export async function updateUser(fd: FormData) {
   const status = str(fd, "status", 10) === "disabled" ? "disabled" : "active";
   if (!name || !EMAIL_RE.test(email) || !ROLES.includes(role)) redirect(`${back}?e=invalid`);
   if (id === me.id && (role !== target.role || status !== target.status)) redirect(`${back}?e=self`);
-  if (target.role === "admin" && (role !== "admin" || status !== "active") && activeAdmins(id) === 0) redirect(`${back}?e=lastadmin`);
+  if (target.role === "admin" && (role !== "admin" || status !== "active") && (await activeAdmins(id)) === 0)
+    redirect(`${back}?e=lastadmin`);
   const password = String(fd.get("password") ?? "");
   if (password && password.length < 12) redirect(`${back}?e=weak`);
   if (Buffer.byteLength(password, "utf8") > 1024) redirect(`${back}?e=long`);
   try {
-    db.prepare("UPDATE users SET name=?, email=?, role=?, status=?, bio=? WHERE id=?").run(name, email, role, status, str(fd, "bio", 500), id);
-  } catch {
-    redirect(`${back}?e=email`);
+    await exec("UPDATE users SET name=$1, email=$2, role=$3, status=$4, bio=$5 WHERE id=$6", [
+      name,
+      email,
+      role,
+      status,
+      str(fd, "bio", 500),
+      id,
+    ]);
+  } catch (e) {
+    if ((e as { code?: string }).code === "23505") redirect(`${back}?e=email`);
+    throw e;
   }
-  if (password) db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(password), id);
-  if (status === "disabled" || password) db.prepare("DELETE FROM sessions WHERE user_id = ?").run(id);
-  logActivity(me, "عدّل المستخدم", name);
+  if (password) await exec("UPDATE users SET password_hash = $1 WHERE id = $2", [hashPassword(password), id]);
+  if (status === "disabled" || password) await exec("DELETE FROM sessions WHERE user_id = $1", [id]);
+  await logActivity(me, "عدّل المستخدم", name);
   redirect(`${back}?m=saved`);
 }
 
 export async function deleteUser(fd: FormData) {
   const me = await requireUser(["admin"]);
   const id = num(fd, "id");
-  const target = db.prepare("SELECT id, role, name FROM users WHERE id = ?").get(id) as { id: number; role: string; name: string } | undefined;
+  const target = await one<{ id: number; role: string; name: string }>("SELECT id, role, name FROM users WHERE id = $1", [id]);
   if (!target) redirect("/admin/users?e=notfound");
   if (id === me.id) redirect(`/admin/users/${id}?e=self`);
-  if (target.role === "admin" && activeAdmins(id) === 0) redirect(`/admin/users/${id}?e=lastadmin`);
-  db.prepare("DELETE FROM users WHERE id = ?").run(id);
-  logActivity(me, "حذف المستخدم", target.name);
+  if (target.role === "admin" && (await activeAdmins(id)) === 0) redirect(`/admin/users/${id}?e=lastadmin`);
+  await exec("DELETE FROM users WHERE id = $1", [id]);
+  await logActivity(me, "حذف المستخدم", target.name);
   redirect("/admin/users?m=deleted");
 }
 
@@ -295,36 +319,41 @@ export async function saveCategory(fd: FormData) {
   const desc = str(fd, "description", 300);
   const order = num(fd, "sort_order");
   try {
-    if (id) db.prepare("UPDATE categories SET name=?, slug=?, description=?, sort_order=? WHERE id=?").run(name, slug, desc, order, id);
-    else db.prepare("INSERT INTO categories (name, slug, description, sort_order) VALUES (?, ?, ?, ?)").run(name, slug, desc, order);
-  } catch {
-    redirect("/admin/taxonomy?e=dup");
+    if (id)
+      await exec("UPDATE categories SET name=$1, slug=$2, description=$3, sort_order=$4 WHERE id=$5", [name, slug, desc, order, id]);
+    else await exec("INSERT INTO categories (name, slug, description, sort_order) VALUES ($1, $2, $3, $4)", [name, slug, desc, order]);
+  } catch (e) {
+    if ((e as { code?: string }).code === "23505") redirect("/admin/taxonomy?e=dup");
+    throw e;
   }
-  logActivity(me, id ? "عدّل التصنيف" : "أضاف تصنيفاً", name);
+  await logActivity(me, id ? "عدّل التصنيف" : "أضاف تصنيفاً", name);
   redirect(`/admin/taxonomy?m=${id ? "saved" : "created"}`);
 }
 
 export async function deleteCategory(fd: FormData) {
   const me = await requireUser(["admin", "editor"]);
   const id = num(fd, "id");
-  const cat = db.prepare("SELECT name FROM categories WHERE id = ?").get(id) as { name: string } | undefined;
+  const cat = await one<{ name: string }>("SELECT name FROM categories WHERE id = $1", [id]);
   if (!cat) redirect("/admin/taxonomy?e=notfound");
   try {
-    db.prepare("DELETE FROM categories WHERE id = ?").run(id);
-  } catch {
-    redirect("/admin/taxonomy?e=inuse");
+    await exec("DELETE FROM categories WHERE id = $1", [id]);
+  } catch (e) {
+    if ((e as { code?: string }).code === "23503") redirect("/admin/taxonomy?e=inuse");
+    throw e;
   }
-  logActivity(me, "حذف التصنيف", cat.name);
+  await logActivity(me, "حذف التصنيف", cat.name);
   redirect("/admin/taxonomy?m=deleted");
 }
 
 export async function createTags(fd: FormData) {
   const me = await requireUser(["admin", "editor"]);
-  const names = str(fd, "names", 300).split(/[,،]/).map((n) => n.trim().replace(/^#/, "").slice(0, 40)).filter(Boolean);
+  const names = str(fd, "names", 300)
+    .split(/[,،]/)
+    .map((n) => n.trim().replace(/^#/, "").slice(0, 40))
+    .filter(Boolean);
   if (!names.length) redirect("/admin/taxonomy?e=invalid");
-  const ins = db.prepare("INSERT OR IGNORE INTO tags (name) VALUES (?)");
-  names.forEach((n) => ins.run(n));
-  logActivity(me, "أضاف وسوماً", names.join("، "));
+  for (const n of names) await exec("INSERT INTO tags (name) VALUES ($1) ON CONFLICT (name) DO NOTHING", [n]);
+  await logActivity(me, "أضاف وسوماً", names.join("، "));
   redirect("/admin/taxonomy?m=created");
 }
 
@@ -333,20 +362,21 @@ export async function renameTag(fd: FormData) {
   const name = str(fd, "name", 40).replace(/^#/, "");
   if (!name) redirect("/admin/taxonomy?e=invalid");
   try {
-    db.prepare("UPDATE tags SET name = ? WHERE id = ?").run(name, num(fd, "id"));
-  } catch {
-    redirect("/admin/taxonomy?e=dup");
+    await exec("UPDATE tags SET name = $1 WHERE id = $2", [name, num(fd, "id")]);
+  } catch (e) {
+    if ((e as { code?: string }).code === "23505") redirect("/admin/taxonomy?e=dup");
+    throw e;
   }
-  logActivity(me, "عدّل وسماً", name);
+  await logActivity(me, "عدّل وسماً", name);
   redirect("/admin/taxonomy?m=saved");
 }
 
 export async function deleteTag(fd: FormData) {
   const me = await requireUser(["admin", "editor"]);
-  const tag = db.prepare("SELECT name FROM tags WHERE id = ?").get(num(fd, "id")) as { name: string } | undefined;
+  const tag = await one<{ name: string }>("SELECT name FROM tags WHERE id = $1", [num(fd, "id")]);
   if (!tag) redirect("/admin/taxonomy?e=notfound");
-  db.prepare("DELETE FROM tags WHERE id = ?").run(num(fd, "id"));
-  logActivity(me, "حذف وسماً", tag.name);
+  await exec("DELETE FROM tags WHERE id = $1", [num(fd, "id")]);
+  await logActivity(me, "حذف وسماً", tag.name);
   redirect("/admin/taxonomy?m=deleted");
 }
 
@@ -354,13 +384,17 @@ export async function deleteTag(fd: FormData) {
 
 export async function saveSocialLinks(fd: FormData) {
   const me = await requireUser(["admin"]);
-  const rows = PLATFORMS.map((p) => ({ key: p.key, url: str(fd, `url_${p.key}`, 300), visible: fd.get(`visible_${p.key}`) ? 1 : 0 }));
+  const rows = PLATFORMS.map((p) => ({ key: p.key, url: str(fd, `url_${p.key}`, 300), visible: !!fd.get(`visible_${p.key}`) }));
   if (rows.some((r) => r.url && !/^https:\/\/[^\s]+$/i.test(r.url))) redirect("/admin/settings?e=url");
-  const up = db.prepare(
-    "INSERT INTO social_links (platform, url, visible) VALUES (?, ?, ?) ON CONFLICT(platform) DO UPDATE SET url = excluded.url, visible = excluded.visible",
-  );
-  db.transaction(() => rows.forEach((r) => up.run(r.key, r.url, r.visible)))();
-  logActivity(me, "عدّل روابط التواصل");
+  await tx(async (q) => {
+    for (const r of rows) {
+      await q.exec(
+        "INSERT INTO social_links (platform, url, visible) VALUES ($1, $2, $3) ON CONFLICT(platform) DO UPDATE SET url = excluded.url, visible = excluded.visible",
+        [r.key, r.url, r.visible],
+      );
+    }
+  });
+  await logActivity(me, "عدّل روابط التواصل");
   redirect("/admin/settings?m=saved");
 }
 
@@ -370,23 +404,22 @@ export async function updateProfile(fd: FormData) {
   const me = await requireUser();
   const name = str(fd, "name", 80);
   if (!name) redirect("/admin/account?e=invalid");
-  db.prepare("UPDATE users SET name = ?, bio = ? WHERE id = ?").run(name, str(fd, "bio", 500), me.id);
+  await exec("UPDATE users SET name = $1, bio = $2 WHERE id = $3", [name, str(fd, "bio", 500), me.id]);
   redirect("/admin/account?m=saved");
 }
 
 export async function changePassword(fd: FormData) {
   const me = await requireUser();
-  const row = db.prepare("SELECT password_hash FROM users WHERE id = ?").get(me.id) as { password_hash: string };
-  if (!verifyPassword(String(fd.get("current") ?? ""), row.password_hash)) redirect("/admin/account?e=wrong");
+  const row = await one<{ password_hash: string }>("SELECT password_hash FROM users WHERE id = $1", [me.id]);
+  if (!row || !verifyPassword(String(fd.get("current") ?? ""), row.password_hash)) redirect("/admin/account?e=wrong");
   const next = String(fd.get("next") ?? "");
   if (next.length < 12) redirect("/admin/account?e=weak");
   if (Buffer.byteLength(next, "utf8") > 1024) redirect("/admin/account?e=long");
   if (next !== String(fd.get("confirm") ?? "")) redirect("/admin/account?e=invalid");
-  const update = db.transaction(() => {
-    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(next), me.id);
-    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(me.id);
+  await tx(async (q) => {
+    await q.exec("UPDATE users SET password_hash = $1 WHERE id = $2", [hashPassword(next), me.id]);
+    await q.exec("DELETE FROM sessions WHERE user_id = $1", [me.id]);
   });
-  update();
   await createSession(me.id);
   redirect("/admin/account?m=password");
 }

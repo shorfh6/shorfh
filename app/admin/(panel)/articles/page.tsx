@@ -20,7 +20,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
   const page = Math.max(1, Number(sp.page) || 1);
   const status = sp.status && sp.status in statusLabels ? sp.status : undefined;
 
-  const { rows, total } = listArticles({
+  const { rows, total } = await listArticles({
     status,
     categoryId: Number(sp.category) || undefined,
     authorId: reviewer ? Number(sp.author) || undefined : user.id,
@@ -32,6 +32,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
 
   const query: Record<string, string> = {};
   for (const k of ["status", "category", "author", "q"] as const) if (sp[k]) query[k] = sp[k]!;
+  const [categories, authorList] = await Promise.all([getCategories(), reviewer ? getAuthors() : Promise.resolve([])]);
 
   return (
     <>
@@ -59,7 +60,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
         <input name="q" defaultValue={sp.q} placeholder="بحث في العنوان أو النص" />
         <select name="category" defaultValue={sp.category ?? ""}>
           <option value="">كل التصنيفات</option>
-          {getCategories().map((c) => (
+          {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
@@ -68,7 +69,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
         {reviewer && (
           <select name="author" defaultValue={sp.author ?? ""}>
             <option value="">كل الكتّاب</option>
-            {getAuthors().map((a) => (
+            {authorList.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
               </option>

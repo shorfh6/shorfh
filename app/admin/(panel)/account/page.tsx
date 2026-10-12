@@ -1,5 +1,4 @@
 import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { roleLabels } from "@/lib/format";
 import { changePassword, updateProfile } from "../../actions";
 import Notice from "@/components/admin/Notice";
@@ -11,7 +10,7 @@ export const metadata = { title: "حسابي" };
 export default async function AccountPage({ searchParams }: Props) {
   const user = await requireUser();
   const sp = await searchParams;
-  const { bio } = db.prepare("SELECT bio FROM users WHERE id = ?").get(user.id) as { bio: string };
+  const bio = user.bio;
 
   return (
     <>

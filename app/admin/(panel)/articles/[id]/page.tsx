@@ -16,13 +16,18 @@ export const metadata = { title: "تحرير خبر" };
 
 export default async function EditArticle({ params, searchParams }: Props) {
   const user = await requireUser();
-  const a = getArticle(Number((await params).id));
+  const a = await getArticle(Number((await params).id));
   if (!a) notFound();
   if (!canReview(user.role) && a.author_id !== user.id) notFound();
   const sp = await searchParams;
   const reviewer = canReview(user.role);
   const editable = canEditArticle(user, a);
-  const selected = getArticleTags(a.id).map((t) => t.id);
+  const [cats, tagList, selected, authorList] = await Promise.all([
+    getCategories(),
+    getTags(),
+    getArticleTags(a.id).then((ts) => ts.map((t) => t.id)),
+    reviewer ? getAuthors() : Promise.resolve([]),
+  ]);
 
   return (
     <>
@@ -44,10 +49,10 @@ export default async function EditArticle({ params, searchParams }: Props) {
           {editable ? (
             <ArticleForm
               article={a}
-              categories={getCategories()}
-              tags={getTags()}
+              categories={cats}
+              tags={tagList}
               selectedTagIds={selected}
-              authors={reviewer ? getAuthors() : []}
+              authors={authorList}
               reviewer={reviewer}
             />
           ) : (

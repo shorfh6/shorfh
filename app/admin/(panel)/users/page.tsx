@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { listUsers } from "@/lib/queries";
 import { formatDate, formatDateTime, roleLabels } from "@/lib/format";
 import { createUser } from "../../actions";
 import Notice from "@/components/admin/Notice";
@@ -9,19 +9,11 @@ type Props = { searchParams: Promise<{ m?: string; e?: string; role?: string }> 
 
 export const metadata = { title: "المستخدمون" };
 
-type Row = { id: number; name: string; email: string; role: string; status: string; created_at: string; last_login: string | null; articles: number };
-
 export default async function UsersPage({ searchParams }: Props) {
   await requireUser(["admin"]);
   const sp = await searchParams;
   const role = sp.role && sp.role in roleLabels ? sp.role : undefined;
-  const users = db
-    .prepare(
-      `SELECT u.id, u.name, u.email, u.role, u.status, u.created_at, u.last_login,
-       (SELECT COUNT(*) FROM articles WHERE author_id = u.id) AS articles
-       FROM users u ${role ? "WHERE u.role = ?" : ""} ORDER BY u.role, u.name`,
-    )
-    .all(...(role ? [role] : [])) as Row[];
+  const users = await listUsers(role);
 
   return (
     <>

@@ -11,16 +11,16 @@ const PER_PAGE = 12;
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const page = Math.max(1, Number((await searchParams).page) || 1);
-  const t = getTag(Number((await params).id));
+  const t = await getTag(Number((await params).id));
   return t ? { title: `#${t.name}`, alternates: { canonical: `/tag/${t.id}${page > 1 ? `?page=${page}` : ""}` } } : {};
 }
 
 export default async function TagPage({ params, searchParams }: Props) {
   const id = Number((await params).id);
-  const tag = getTag(id);
+  const tag = await getTag(id);
   if (!tag) notFound();
   const page = Math.max(1, Number((await searchParams).page) || 1);
-  const { rows, total } = listArticles({ publicOnly: true, tagId: id, limit: PER_PAGE, offset: (page - 1) * PER_PAGE });
+  const { rows, total } = await listArticles({ publicOnly: true, tagId: id, limit: PER_PAGE, offset: (page - 1) * PER_PAGE });
 
   return (
     <main className="wrap">

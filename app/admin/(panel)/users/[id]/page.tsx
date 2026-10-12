@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { getAuthor } from "@/lib/queries";
+import { getAuthor, userArticleStatusCounts, userLastLogin } from "@/lib/queries";
 import { formatDateTime, roleLabels } from "@/lib/format";
 import { deleteUser, updateUser } from "../../../actions";
 import ConfirmButton from "@/components/admin/ConfirmButton";
@@ -15,13 +14,10 @@ export const metadata = { title: "إدارة مستخدم" };
 export default async function UserPage({ params, searchParams }: Props) {
   const me = await requireUser(["admin"]);
   const id = Number((await params).id);
-  const u = getAuthor(id);
+  const u = await getAuthor(id);
   if (!u) notFound();
   const sp = await searchParams;
-  const counts = db
-    .prepare("SELECT status, COUNT(*) AS n FROM articles WHERE author_id = ? GROUP BY status")
-    .all(id) as { status: string; n: number }[];
-  const last = (db.prepare("SELECT last_login FROM users WHERE id = ?").get(id) as { last_login: string | null }).last_login;
+  const [counts, last] = await Promise.all([userArticleStatusCounts(id), userLastLogin(id)]);
   const self = me.id === id;
 
   return (

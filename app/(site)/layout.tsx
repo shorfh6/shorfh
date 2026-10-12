@@ -4,10 +4,11 @@ import { getCategories } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  const categories = await getCategories();
   return (
     <>
-      <Header categories={getCategories().map((c) => ({ slug: c.slug, name: c.name }))} />
+      <Header categories={categories.map((c) => ({ slug: c.slug, name: c.name }))} />
       {children}
       <Footer />
     </>

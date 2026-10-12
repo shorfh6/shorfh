@@ -12,7 +12,7 @@ const PER_PAGE = 12;
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const page = Math.max(1, Number((await searchParams).page) || 1);
-  const author = getAuthor(Number((await params).id));
+  const author = await getAuthor(Number((await params).id));
   if (!author) return {};
   return {
     title: author.name,
@@ -23,10 +23,10 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function AuthorPage({ params, searchParams }: Props) {
   const id = Number((await params).id);
-  const author = getAuthor(id);
+  const author = await getAuthor(id);
   if (!author || author.status !== "active") notFound();
   const page = Math.max(1, Number((await searchParams).page) || 1);
-  const { rows, total } = listArticles({ publicOnly: true, authorId: id, limit: PER_PAGE, offset: (page - 1) * PER_PAGE });
+  const { rows, total } = await listArticles({ publicOnly: true, authorId: id, limit: PER_PAGE, offset: (page - 1) * PER_PAGE });
 
   return (
     <main className="wrap">

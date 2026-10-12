@@ -7,14 +7,19 @@ export const metadata = { title: "خبر جديد" };
 export default async function NewArticle() {
   const user = await requireUser();
   const reviewer = canReview(user.role);
+  const [categories, tags, authorList] = await Promise.all([
+    getCategories(),
+    getTags(),
+    reviewer ? getAuthors() : Promise.resolve([]),
+  ]);
   return (
     <>
       <h1 className="page-h">خبر جديد</h1>
       <ArticleForm
-        categories={getCategories()}
-        tags={getTags()}
+        categories={categories}
+        tags={tags}
         selectedTagIds={[]}
-        authors={reviewer ? getAuthors() : []}
+        authors={authorList}
         reviewer={reviewer}
         defaultAuthorId={user.id}
       />
