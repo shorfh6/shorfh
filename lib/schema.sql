@@ -66,3 +66,9 @@ CREATE TABLE IF NOT EXISTS activity (
   target TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS social_links (
+  platform TEXT PRIMARY KEY,
+  url TEXT NOT NULL DEFAULT '',
+  visible INTEGER NOT NULL DEFAULT 1
+);

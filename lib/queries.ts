@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { PLATFORMS, type SocialLink } from "./social";
 
 export type Category = { id: number; slug: string; name: string; description: string; sort_order: number };
 export type Tag = { id: number; name: string };
@@ -228,3 +229,17 @@ export const recentActivity = (limit = 10) =>
     target: string;
     created_at: string;
   }[];
+
+export function getSocialLinks(): SocialLink[] {
+  const rows = new Map(
+    (db.prepare("SELECT platform, url, visible FROM social_links").all() as { platform: string; url: string; visible: number }[]).map(
+      (r) => [r.platform, r],
+    ),
+  );
+  return PLATFORMS.map((p) => {
+    const row = rows.get(p.key);
+    return { ...p, url: row?.url ?? p.home, visible: row ? !!row.visible : true };
+  });
+}
+
+export const visibleSocialLinks = () => getSocialLinks().filter((l) => l.visible && l.url);

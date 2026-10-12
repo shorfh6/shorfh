@@ -1,8 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { randomBytes } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   canDeleteArticle,
@@ -16,6 +17,7 @@ import {
 } from "@/lib/auth";
 import { db, UPLOAD_DIR } from "@/lib/db";
 import { getArticle, logActivity } from "@/lib/queries";
+import { PLATFORMS } from "@/lib/social";
 
 const str = (fd: FormData, k: string, max: number) => String(fd.get(k) ?? "").trim().slice(0, max);
 const num = (fd: FormData, k: string) => Number(fd.get(k)) || 0;
@@ -25,27 +27,34 @@ const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /* ---------- auth ---------- */
 
-const g = globalThis as unknown as { __loginWindow?: { startedAt: number; count: number } };
+const g = globalThis as unknown as { __loginAttempts?: Map<string, { startedAt: number; count: number }> };
 const DUMMY_HASH = hashPassword("dummy-password-for-timing");
-const MAX_LOGINS_PER_MINUTE = 30;
+const MAX_LOGINS_PER_MINUTE = 10;
 
 export async function login(_prev: { error?: string } | undefined, fd: FormData): Promise<{ error?: string }> {
   const email = str(fd, "email", 200).toLowerCase();
   const password = String(fd.get("password") ?? "");
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
   const timestamp = Date.now();
-  let window = g.__loginWindow;
+  const attempts = (g.__loginAttempts ??= new Map());
+  if (attempts.size > 1000) {
+    for (const [key, entry] of attempts) {
+      if (timestamp - entry.startedAt >= 60_000) attempts.delete(key);
+    }
+  }
+  let window = attempts.get(ip);
   if (!window || timestamp - window.startedAt >= 60_000) {
     window = { startedAt: timestamp, count: 0 };
-    g.__loginWindow = window;
+    attempts.set(ip, window);
   }
   if (window.count >= MAX_LOGINS_PER_MINUTE) return { error: "محاولات كثيرة، حاول مرة أخرى بعد دقيقة" };
-  window.count++;
 
   const user = db.prepare("SELECT id, password_hash, status FROM users WHERE email = ?").get(email) as
     | { id: number; password_hash: string; status: string }
     | undefined;
   const ok = verifyPassword(password, user?.password_hash ?? DUMMY_HASH) && user && user.status === "active";
   if (!ok || !user) {
+    window.count++;
     return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
   }
   db.prepare("UPDATE users SET last_login = ? WHERE id = ?").run(now(), user.id);
@@ -74,6 +83,14 @@ async function saveUpload(file: File): Promise<string | null> {
   const name = `${randomBytes(12).toString("hex")}${ext}`;
   await writeFile(path.join(/*turbopackIgnore: true*/ UPLOAD_DIR, name), buf);
   return name;
+}
+
+async function removeUploadIfUnused(name: string) {
+  if (!name || /^https?:\/\//.test(name) || !/^[\w.-]+$/.test(name)) return;
+  if (db.prepare("SELECT 1 FROM articles WHERE image = ?").get(name)) return;
+  try {
+    await unlink(path.join(/*turbopackIgnore: true*/ UPLOAD_DIR, name));
+  } catch {}
 }
 
 function syncTags(articleId: number, tagIds: number[], newTags: string) {
@@ -163,6 +180,7 @@ export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promis
     syncTags(articleId, tagIds, values.newTags);
   });
   run();
+  if (existing && existing.image && existing.image !== image) await removeUploadIfUnused(existing.image);
 
   logActivity(user, existing ? "عدّل الخبر" : "أنشأ الخبر", values.title);
   redirect(`/admin/articles/${articleId}?m=${status === "pending" && !reviewer ? "submitted" : existing ? "saved" : "created"}`);
@@ -195,6 +213,7 @@ export async function deleteArticle(fd: FormData) {
   if (!a) redirect("/admin/articles?e=notfound");
   if (!canDeleteArticle(user, a)) redirect("/admin/articles?e=forbidden");
   db.prepare("DELETE FROM articles WHERE id = ?").run(a.id);
+  await removeUploadIfUnused(a.image);
   logActivity(user, "حذف الخبر", a.title);
   redirect("/admin/articles?m=deleted");
 }
@@ -329,6 +348,20 @@ export async function deleteTag(fd: FormData) {
   db.prepare("DELETE FROM tags WHERE id = ?").run(num(fd, "id"));
   logActivity(me, "حذف وسماً", tag.name);
   redirect("/admin/taxonomy?m=deleted");
+}
+
+/* ---------- site settings ---------- */
+
+export async function saveSocialLinks(fd: FormData) {
+  const me = await requireUser(["admin"]);
+  const rows = PLATFORMS.map((p) => ({ key: p.key, url: str(fd, `url_${p.key}`, 300), visible: fd.get(`visible_${p.key}`) ? 1 : 0 }));
+  if (rows.some((r) => r.url && !/^https:\/\/[^\s]+$/i.test(r.url))) redirect("/admin/settings?e=url");
+  const up = db.prepare(
+    "INSERT INTO social_links (platform, url, visible) VALUES (?, ?, ?) ON CONFLICT(platform) DO UPDATE SET url = excluded.url, visible = excluded.visible",
+  );
+  db.transaction(() => rows.forEach((r) => up.run(r.key, r.url, r.visible)))();
+  logActivity(me, "عدّل روابط التواصل");
+  redirect("/admin/settings?m=saved");
 }
 
 /* ---------- account ---------- */

@@ -16,6 +16,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   ];
   if (canReview(user.role)) items.push({ href: "/admin/taxonomy", label: "التصنيفات والوسوم", icon: "◈" });
   if (user.role === "admin") items.push({ href: "/admin/users", label: "المستخدمون والكتّاب", icon: "☺" });
+  if (user.role === "admin") items.push({ href: "/admin/settings", label: "إعدادات الموقع", icon: "✦" });
   items.push({ href: "/admin/account", label: "حسابي", icon: "⚙" });
 
   return (

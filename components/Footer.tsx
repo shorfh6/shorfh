@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Logo from "./Logo";
-import { getCategories } from "@/lib/queries";
+import SocialLinks from "./SocialLinks";
 import { infoPages } from "@/lib/pages";
 
 export default function Footer() {
@@ -8,14 +8,7 @@ export default function Footer() {
     <footer className="foot">
       <div className="foot-top">
         <Logo />
-        <nav>
-          <Link href="/">الرئيسية</Link>
-          {getCategories().map((c) => (
-            <Link key={c.slug} href={`/category/${c.slug}`}>
-              {c.name}
-            </Link>
-          ))}
-        </nav>
+        <SocialLinks />
       </div>
       <div className="foot-bottom">
         <nav>

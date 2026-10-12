@@ -17,11 +17,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }));
 
   entries.push(
-    ...sitemapCategories().map((c) => ({ url: absoluteUrl(`/category/${c.slug}`), changeFrequency: "daily" as const, priority: 0.7 })),
+    ...sitemapCategories().map((c) => ({
+      url: absoluteUrl(`/category/${c.slug}`),
+      lastModified: now,
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+    })),
     ...sitemapArticles().map((a) => ({
       url: absoluteUrl(`/article/${a.id}`),
       lastModified: a.updated_at,
-      changeFrequency: "yearly" as const,
+      changeFrequency: "weekly" as const,
       priority: 0.8,
     })),
     ...sitemapAuthors().map((a) => ({

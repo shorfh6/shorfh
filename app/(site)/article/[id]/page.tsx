@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ArticleCard from "@/components/ArticleCard";
@@ -16,7 +17,7 @@ import {
   mostViewed,
   relatedArticles,
 } from "@/lib/queries";
-import { coverStyle, formatDate, formatDateTime, imageUrl } from "@/lib/format";
+import { coverStyle, formatDate, formatDateTime, imageUrl, readingTimeLabel } from "@/lib/format";
 import { absoluteUrl } from "@/lib/seo";
 
 type Props = { params: Promise<{ id: string }> };
@@ -47,7 +48,14 @@ export default async function ArticlePage({ params }: Props) {
   const id = Number((await params).id);
   const a = getPublishedArticle(id);
   if (!a) notFound();
-  incrementViews(id);
+  const h = await headers();
+  if (
+    !h.get("next-router-prefetch") &&
+    h.get("purpose") !== "prefetch" &&
+    !/bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|preview/i.test(h.get("user-agent") ?? "")
+  ) {
+    incrementViews(id);
+  }
 
   const tags = getArticleTags(a.id);
   const related = relatedArticles(a, 3);
@@ -116,7 +124,7 @@ export default async function ArticlePage({ params }: Props) {
             <span>
               📅 <time dateTime={a.published_at ?? undefined}>{formatDate(a.published_at)}</time>
             </span>
-            <span>⏱ {minutes} دقائق للقراءة</span>
+            <span>⏱ {readingTimeLabel(minutes)}</span>
             <span>👁 {a.views.toLocaleString("ar-SA")} مشاهدة</span>
           </div>
           {updated && <p className="updated">آخر تحديث: {formatDateTime(a.updated_at)}</p>}

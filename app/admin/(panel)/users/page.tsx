@@ -100,7 +100,7 @@ export default async function UsersPage({ searchParams }: Props) {
             </select>
           </label>
           <label>
-            كلمة المرور (8 أحرف على الأقل)
+            كلمة المرور (12 حرفاً على الأقل)
             <input name="password" type="password" required minLength={12} maxLength={1024} autoComplete="new-password" dir="ltr" />
           </label>
           <label className="full">

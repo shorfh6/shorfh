@@ -14,6 +14,9 @@ export const coverStyle = (img: string) => (img ? { backgroundImage: `url("${ima
 export const formatDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" }) : "—";
 
+export const readingTimeLabel = (m: number) =>
+  m === 1 ? "دقيقة واحدة للقراءة" : m === 2 ? "دقيقتان للقراءة" : m <= 10 ? `${m} دقائق للقراءة` : `${m} دقيقة للقراءة`;
+
 export const formatDateTime = (iso?: string | null) =>
   iso
     ? new Date(iso).toLocaleString("ar-SA", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
@@ -45,6 +48,7 @@ const errors: Record<string, string> = {
   inuse: "لا يمكن الحذف لوجود أخبار مرتبطة به",
   dup: "الاسم أو الرابط المختصر مستخدم من قبل",
   notfound: "العنصر غير موجود",
+  url: "روابط المنصات يجب أن تبدأ بـ https://",
 };
 
 export const flash = (m?: string, e?: string) => ({

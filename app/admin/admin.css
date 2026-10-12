@@ -125,6 +125,9 @@
 .inline-form .narrow{flex:0 0 80px;min-width:80px}
 .inline-form.add{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .rows{display:flex;flex-direction:column;gap:8px}
+.social-row{display:grid;grid-template-columns:24px 90px 1fr auto;gap:10px;align-items:center}
+.social-row input[type=text],.social-row input:not([type=checkbox]){width:100%}
+.switch{display:flex;gap:6px;align-items:center;white-space:nowrap;font-size:13px}
 .count{color:var(--muted);font-size:12px;white-space:nowrap}
 .tag-list{list-style:none;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 
@@ -141,6 +144,8 @@
   .side-nav{flex-direction:row;flex-wrap:wrap}
   .side-site{margin:0}
   .grid-2,.edit-grid,.two,.grid-form,.tag-list{grid-template-columns:1fr}
+  .social-row{grid-template-columns:24px 1fr}
+  .social-row input:not([type=checkbox]){grid-column:1/-1}
   .side-panel{position:static}
   .content{padding:16px}
 }
