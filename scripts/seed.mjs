@@ -3,6 +3,7 @@
 import { randomBytes, scryptSync } from "node:crypto";
 import { readFileSync } from "node:fs";
 import pg from "pg";
+import { pgConnectionOptions } from "./pg-options.mjs";
 
 try {
   process.loadEnvFile(".env.local");
@@ -28,10 +29,7 @@ if (!process.env.DATABASE_URL) {
 const reset = process.argv.includes("--reset");
 const withArticles = process.argv.includes("--demo-articles");
 
-const client = new pg.Client({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_SSL === "false" ? undefined : { rejectUnauthorized: false },
-});
+const client = new pg.Client(pgConnectionOptions());
 await client.connect();
 
 try {

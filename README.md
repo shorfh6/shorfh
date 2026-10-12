@@ -54,7 +54,8 @@ npm run build && npm start   # npm start يشغّل المهاجرات أولا�
 راجع `.env.example`:
 
 - `DATABASE_URL` — عنوان اتصال PostgreSQL. في Supabase استخدم **Session Pooler** (المنفذ 5432) وأضف `?sslmode=require`.
-- `DATABASE_SSL` — اتركه غير مضبوط (الافتراضي: TLS بلا تحقق صارم)؛ عيّنه `false` فقط لقاعدة محلية بلا TLS.
+- `DATABASE_SSL` — اتركه غير مضبوط (الافتراضي: TLS بلا تحقق من سلسلة الشهادات)؛ عيّنه `false` فقط لقاعدة محلية بلا TLS. وجود `?sslmode=require` في `DATABASE_URL` صحيح ومتوقع (تتم إزالته ومعالجة TLS عبر خيارات الاتصال).
+- `DATABASE_CA_CERT` — اختياري: شهادة CA من Supabase (Project Settings → Database → SSL → "Download certificate") بصيغة PEM على سطر واحد مع `\n` بدل فواصل الأسطر. عند تعيينه يتم التحقق الكامل من سلسلة الشهادات؛ بدونه يعمل TLS دون تحقق من السلسلة.
 - `SUPABASE_URL` — عنوان مشروع Supabase.
 - `SUPABASE_SERVICE_ROLE_KEY` — مفتاح الخدمة، **للخادم فقط**؛ لا تستخدمه أبداً مع `NEXT_PUBLIC_`.
 - `SUPABASE_STORAGE_BUCKET` — اسم الحاوية (الافتراضي `article-images`).

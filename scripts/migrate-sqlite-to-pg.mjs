@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { pgConnectionOptions } from "./pg-options.mjs";
 
 try {
   process.loadEnvFile(".env.local");
@@ -52,10 +53,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const client = new pg.Client({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_SSL === "false" ? undefined : { rejectUnauthorized: false },
-});
+const client = new pg.Client(pgConnectionOptions());
 await client.connect();
 
 const conflict = force ? " ON CONFLICT (id) DO NOTHING" : "";
