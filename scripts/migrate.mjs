@@ -20,6 +20,7 @@ const client = new pg.Client(pgConnectionOptions());
 await client.connect();
 try {
   await client.query("CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())");
+  await client.query("ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY");
   const done = new Set((await client.query("SELECT name FROM schema_migrations")).rows.map((r) => r.name));
   const files = readdirSync(dir)
     .filter((f) => f.endsWith(".sql"))
