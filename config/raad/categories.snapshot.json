@@ -1,0 +1,18 @@
+{
+  "version": "raad.category-inventory/1",
+  "purpose": "Read-only authenticated inventory, not a live category synchronizer or publishing authorization",
+  "site": "https://www.shurfh.com",
+  "projectRef": "edfbsgnrsbbjngbudpfk",
+  "observedAt": "2026-10-22T21:42:58.009Z",
+  "source": "https://supabase.com/dashboard/project/edfbsgnrsbbjngbudpfk/editor/17642",
+  "table": "public.categories",
+  "method": "Authenticated dashboard table grid, read-only",
+  "recordCount": 5,
+  "categories": [
+    { "id": 1, "slug": "local", "name": "الأخبار المحلية", "description": "أخبار المملكة والمناطق والخدمات.", "sort_order": 0 },
+    { "id": 2, "slug": "politics", "name": "السياسة", "description": "تطورات المشهد السياسي إقليمياً ودولياً.", "sort_order": 1 },
+    { "id": 3, "slug": "sports", "name": "الرياضة", "description": "أخبار الأندية والمنتخبات والبطولات.", "sort_order": 2 },
+    { "id": 4, "slug": "culture", "name": "ثقافة وفن", "description": "الثقافة والفنون والمشاهير.", "sort_order": 3 },
+    { "id": 5, "slug": "tech", "name": "تقنية", "description": "التقنية والذكاء الاصطناعي والأمن الرقمي.", "sort_order": 4 }
+  ]
+}

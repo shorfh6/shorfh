@@ -1,0 +1,33 @@
+{
+  "version": "raad.original-media-provenance/1",
+  "assetId": "shurfa-draft-53-original-card",
+  "recordedAt": "2026-10-26T07:49:41.927Z",
+  "createdAtFilesystem": "2026-10-25T13:10:11.769Z",
+  "project": "شُرفة",
+  "site": "https://www.shurfh.com",
+  "createdBy": "RAAD local graphics tooling under the owner instruction to supply an original thumbnail",
+  "assetPath": "docs/raad/media/shurfa-alula-lasersetI-illustration.png",
+  "assetSha256": "fd470e814ece308ec7796f292e70e923cba8f9b1b9d8d46e723913daf2781f0a",
+  "bytes": 39431,
+  "width": 1200,
+  "height": 675,
+  "format": "png",
+  "generationScript": "scripts/raad/create-draft-53-card.ps1",
+  "generationScriptSha256": "d5dbfeb09943c7335ee489dbfa7bddd00219546697c53fcd4edd7f623dfc0e94",
+  "materials": "Original programmatically drawn geometric shapes and original editorial labels; no downloaded publisher images, external illustrations, models or photographs.",
+  "projectUseGrant": {
+    "label": "PROJECT-ORIGINAL-ASSET",
+    "grantedBy": "Project owner instruction to RAAD to create and use an original thumbnail for Shurfa",
+    "permittedUses": [
+      "Store and display this original raster output on Shurfa",
+      "Publish with the approved article",
+      "Resize or optimise the raster output while retaining its illustrative label"
+    ],
+    "attribution": "شُرفة — بطاقة توضيحية أصلية",
+    "externalPhotoLicenceRequired": false,
+    "externalPublisherImageUsed": false
+  },
+  "label": "صورة توضيحية أصلية — ليست صورة للمحطتين",
+  "alt": "بطاقة توضيحية أصلية عن العلا وشبكة LaserSETI، تضم دوائر وخطًا رمزيًا، وليست صورة للمحطتين",
+  "limits": "Internal project provenance and commissioning record; not a government copyright registration, an external publisher licence or permission to publish an unapproved article."
+}

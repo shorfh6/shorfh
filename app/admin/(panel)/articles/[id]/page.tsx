@@ -99,7 +99,8 @@ export default async function EditArticle({ params, searchParams }: Props) {
                 <form action={approveArticle}>
                   <input type="hidden" name="id" value={a.id} />
                   <input type="hidden" name="back" value={`/admin/articles/${a.id}`} />
-                  <button className="btn-ok block">قبول ونشر</button>
+                  <button className="btn-ok block">نشر النسخة المعتمدة</button>
+                  <p className="muted">يلزم اعتماد مسجل مطابق لهذه النسخة؛ الضغط هنا لا ينشئ اعتمادًا.</p>
                 </form>
               )}
               {a.status !== "rejected" && (

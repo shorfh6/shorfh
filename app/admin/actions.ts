@@ -12,11 +12,13 @@ import {
   hashPassword,
   requireUser,
   verifyPassword,
+  type User,
 } from "@/lib/auth";
 import { exec, one, tx, type Q } from "@/lib/db";
 import { getArticle, logActivity } from "@/lib/queries";
 import { PLATFORMS } from "@/lib/social";
-import { deleteImage, putImage } from "@/lib/storage";
+import { deleteImage, getImage, putImage } from "@/lib/storage";
+import { assertPublicationApproved, lockPublicationScope, publicationFailure } from "@/lib/publication";
 
 const str = (fd: FormData, k: string, max: number) => String(fd.get(k) ?? "").trim().slice(0, max);
 const num = (fd: FormData, k: string) => Number(fd.get(k)) || 0;
@@ -107,8 +109,8 @@ async function syncTags(q: Q, articleId: number, tagIds: number[], newTags: stri
     const row = await q.one<{ id: number }>("SELECT id FROM tags WHERE name = $1", [name]);
     if (row) ids.add(row.id);
   }
-  await q.exec("DELETE FROM article_tags WHERE article_id = $1", [articleId]);
-  for (const t of ids) await q.exec("INSERT INTO article_tags (article_id, tag_id) VALUES ($1, $2)", [articleId, t]);
+  await q.exec("DELETE FROM article_tags WHERE article_id = $1 AND NOT (tag_id = ANY($2::integer[]))", [articleId, [...ids]]);
+  for (const t of ids) await q.exec("INSERT INTO article_tags (article_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [articleId, t]);
 }
 
 export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promise<ArticleFormState> {
@@ -133,44 +135,57 @@ export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promis
   const tagIds = fd.getAll("tags").map(Number).filter(Boolean);
   const fail = (error: string): ArticleFormState => ({ error, values, tagIds });
 
+  if (!id && intent === "publish") return fail("احفظ المادة كمسودة أولًا؛ النشر يتطلب اعتمادًا مسجلًا للنسخة المحفوظة.");
+
   if (!values.title) return fail("العنوان مطلوب");
   if (!values.body) return fail("نص الخبر مطلوب");
   const categoryId = Number(values.category);
   if (!(await one("SELECT 1 FROM categories WHERE id = $1", [categoryId]))) return fail("اختر تصنيفاً صحيحاً");
 
   let image = values.image;
+  let uploadedImage: string | undefined;
   if (image && !/^https:\/\//.test(image) && !/^[\w.-]+\.(jpg|png|webp)$/i.test(image)) return fail("رابط الصورة يجب أن يبدأ بـ https");
   const file = fd.get("imageFile");
   if (file instanceof File && file.size > 0) {
     const saved = await saveUpload(file);
     if (!saved) return fail("الصورة غير صالحة: استخدم JPG أو PNG أو WEBP بحجم لا يتجاوز 5 ميجابايت");
     image = saved;
+    uploadedImage = saved;
   }
-
-  const reviewer = canReview(user.role);
-  let authorId = existing?.author_id ?? user.id;
-  if (reviewer && (await one("SELECT 1 FROM users WHERE id = $1", [Number(values.author)]))) authorId = Number(values.author);
-
-  let status: string = existing?.status ?? "draft";
-  let publishedAt = existing?.published_at ?? null;
-  if (reviewer) {
-    if (intent === "publish") status = "published";
-    else if (intent === "draft") status = "draft";
-    else if (intent === "pending") status = "pending";
-  } else {
-    status = intent === "submit" ? "pending" : "draft";
-  }
-  if (status === "published" && !publishedAt) publishedAt = now();
-  const featured = reviewer ? !!values.featured : (existing?.featured ?? false);
-  const exclusive = reviewer ? !!values.exclusive : (existing?.exclusive ?? false);
-  const rejectReason = status === "draft" || status === "rejected" ? (existing?.reject_reason ?? "") : "";
 
   let articleId = id;
-  await tx(async (q) => {
-    if (existing) {
+  let status = "draft";
+  let reviewer = false;
+  let obsoleteDraftImage: string | undefined;
+  try {
+   await tx(async (q) => {
+    await lockPublicationScope(q);
+    const actor = await q.one<Pick<User, "id" | "name" | "role" | "status">>("SELECT id,name,role,status FROM users WHERE id=$1", [user.id]);
+    if (!actor || actor.status !== "active") throw new Error("RAAD_ACTION_FORBIDDEN");
+    const current = id ? await q.one<NonNullable<typeof existing>>("SELECT * FROM articles WHERE id=$1 FOR UPDATE", [id]) : undefined;
+    if (id && !current) throw new Error("RAAD_ARTICLE_NOT_FOUND");
+    if (current && !canEditArticle(actor, current)) throw new Error("RAAD_ACTION_FORBIDDEN");
+    if (current && !current.published_at && current.image && current.image !== image) obsoleteDraftImage = current.image;
+    reviewer = canReview(actor.role);
+    let authorId = current?.author_id ?? actor.id;
+    if (reviewer && (await q.one("SELECT 1 FROM users WHERE id=$1", [Number(values.author)]))) authorId = Number(values.author);
+    status = current?.status ?? "draft";
+    if (reviewer) {
+      if (intent === "publish") status = "published";
+      else if (intent === "draft") status = "draft";
+      else if (intent === "pending") status = "pending";
+    } else status = intent === "submit" ? "pending" : "draft";
+    const publishedAt = current?.published_at ?? (status === "published" ? now() : null);
+    const previousPublishedHash = current?.status === "published" && status === "published"
+      ? (await q.one<{ hash: string }>("SELECT raad_gate.article_snapshot_hash($1) AS hash", [articleId]))?.hash
+      : undefined;
+    const featured = reviewer ? !!values.featured : (current?.featured ?? false);
+    const exclusive = reviewer ? !!values.exclusive : (current?.exclusive ?? false);
+    const rejectReason = status === "draft" || status === "rejected" ? (current?.reject_reason ?? "") : "";
+    if (current) {
       await q.exec(
         `UPDATE articles SET title=$1, excerpt=$2, body=$3, image=$4, category_id=$5, author_id=$6, status=$7, featured=$8, exclusive=$9,
-         reject_reason=$10, published_at=$11, updated_at=$12 WHERE id=$13`,
+          reject_reason=$10, published_at=COALESCE(published_at,$11), updated_at=$12 WHERE id=$13`,
         [values.title, values.excerpt, values.body, image, categoryId, authorId, status, featured, exclusive, rejectReason, publishedAt, now(), id],
       );
     } else {
@@ -182,10 +197,20 @@ export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promis
       articleId = row?.id ?? 0;
     }
     await syncTags(q, articleId, tagIds, values.newTags);
-  });
-  if (existing && existing.image && existing.image !== image) await removeUploadIfUnused(existing.image);
+    if (status === "published") {
+      const currentHash = (await q.one<{ hash: string }>("SELECT raad_gate.article_snapshot_hash($1) AS hash", [articleId]))?.hash;
+      if (!previousPublishedHash || previousPublishedHash !== currentHash) await assertPublicationApproved(q, articleId, getImage);
+    }
+    await q.exec("INSERT INTO activity(user_id,user_name,action,target) VALUES($1,$2,$3,$4)", [actor.id, actor.name, current ? "عدّل الخبر" : "أنشأ الخبر", values.title]);
+   });
+  } catch (error) {
+    const failure = publicationFailure(error);
+    if (!failure) throw error;
+    if (uploadedImage) { try { await removeUploadIfUnused(uploadedImage); } catch { /* Keep owned orphan for later cleanup. */ } }
+    return fail(failure.message);
+  }
+  if (obsoleteDraftImage) await removeUploadIfUnused(obsoleteDraftImage);
 
-  await logActivity(user, existing ? "عدّل الخبر" : "أنشأ الخبر", values.title);
   redirect(`/admin/articles/${articleId}?m=${status === "pending" && !reviewer ? "submitted" : existing ? "saved" : "created"}`);
 }
 
@@ -193,13 +218,26 @@ export async function approveArticle(fd: FormData) {
   const user = await requireUser(["admin", "editor"]);
   const a = await getArticle(num(fd, "id"));
   if (!a) redirect("/admin/articles?e=notfound");
-  await exec(
-    "UPDATE articles SET status='published', published_at=COALESCE(published_at, $1), reject_reason='', updated_at=$2 WHERE id=$3",
-    [now(), now(), a.id],
-  );
-  await logActivity(user, "اعتمد الخبر", a.title);
+  let alreadyPublished = false;
+  try {
+    await tx(async q => {
+      await lockPublicationScope(q);
+      const actor = await q.one<Pick<User, "id" | "name" | "role" | "status">>("SELECT id,name,role,status FROM users WHERE id=$1", [user.id]);
+      if (!actor || actor.status !== "active" || !canReview(actor.role)) throw new Error("RAAD_ACTION_FORBIDDEN");
+      const current = await q.one<{ id: number; status: string; title: string }>("SELECT id,status,title FROM articles WHERE id=$1 FOR UPDATE", [a.id]);
+      if (!current) throw new Error("RAAD_ARTICLE_NOT_FOUND");
+      if (current.status === "published") { alreadyPublished = true; return; }
+      await assertPublicationApproved(q, current.id, getImage);
+      await q.exec("UPDATE articles SET status='published',published_at=COALESCE(published_at,$1),reject_reason='',updated_at=$1 WHERE id=$2", [now(), current.id]);
+      await q.exec("INSERT INTO activity(user_id,user_name,action,target) VALUES($1,$2,$3,$4)", [actor.id, actor.name, "نشر النسخة المعتمدة", current.title]);
+    });
+  } catch (error) {
+    const failure = publicationFailure(error);
+    if (!failure) throw error;
+    redirect(`/admin/articles/${a.id}?e=${failure.code}`);
+  }
   const back = String(fd.get("back") ?? "");
-  redirect(`${back.startsWith("/admin/") && !back.includes("?") ? back : "/admin/articles"}?m=approved`);
+  redirect(`${back.startsWith("/admin/") && !back.includes("?") ? back : "/admin/articles"}?m=${alreadyPublished ? "already_published" : "approved"}`);
 }
 
 export async function rejectArticle(fd: FormData) {
@@ -288,6 +326,8 @@ export async function updateUser(fd: FormData) {
     ]);
   } catch (e) {
     if ((e as { code?: string }).code === "23505") redirect(`${back}?e=email`);
+    const failure = publicationFailure(e);
+    if (failure) redirect(`${back}?e=${failure.code}`);
     throw e;
   }
   if (password) await exec("UPDATE users SET password_hash = $1 WHERE id = $2", [hashPassword(password), id]);
@@ -303,7 +343,8 @@ export async function deleteUser(fd: FormData) {
   if (!target) redirect("/admin/users?e=notfound");
   if (id === me.id) redirect(`/admin/users/${id}?e=self`);
   if (target.role === "admin" && (await activeAdmins(id)) === 0) redirect(`/admin/users/${id}?e=lastadmin`);
-  await exec("DELETE FROM users WHERE id = $1", [id]);
+  try { await exec("DELETE FROM users WHERE id = $1", [id]); }
+  catch (error) { const failure = publicationFailure(error); if (failure) redirect(`/admin/users/${id}?e=${failure.code}`); throw error; }
   await logActivity(me, "حذف المستخدم", target.name);
   redirect("/admin/users?m=deleted");
 }
@@ -324,6 +365,8 @@ export async function saveCategory(fd: FormData) {
     else await exec("INSERT INTO categories (name, slug, description, sort_order) VALUES ($1, $2, $3, $4)", [name, slug, desc, order]);
   } catch (e) {
     if ((e as { code?: string }).code === "23505") redirect("/admin/taxonomy?e=dup");
+    const failure = publicationFailure(e);
+    if (failure) redirect(`/admin/taxonomy?e=${failure.code}`);
     throw e;
   }
   await logActivity(me, id ? "عدّل التصنيف" : "أضاف تصنيفاً", name);
@@ -339,6 +382,8 @@ export async function deleteCategory(fd: FormData) {
     await exec("DELETE FROM categories WHERE id = $1", [id]);
   } catch (e) {
     if ((e as { code?: string }).code === "23503") redirect("/admin/taxonomy?e=inuse");
+    const failure = publicationFailure(e);
+    if (failure) redirect(`/admin/taxonomy?e=${failure.code}`);
     throw e;
   }
   await logActivity(me, "حذف التصنيف", cat.name);
@@ -365,6 +410,8 @@ export async function renameTag(fd: FormData) {
     await exec("UPDATE tags SET name = $1 WHERE id = $2", [name, num(fd, "id")]);
   } catch (e) {
     if ((e as { code?: string }).code === "23505") redirect("/admin/taxonomy?e=dup");
+    const failure = publicationFailure(e);
+    if (failure) redirect(`/admin/taxonomy?e=${failure.code}`);
     throw e;
   }
   await logActivity(me, "عدّل وسماً", name);
@@ -375,7 +422,8 @@ export async function deleteTag(fd: FormData) {
   const me = await requireUser(["admin", "editor"]);
   const tag = await one<{ name: string }>("SELECT name FROM tags WHERE id = $1", [num(fd, "id")]);
   if (!tag) redirect("/admin/taxonomy?e=notfound");
-  await exec("DELETE FROM tags WHERE id = $1", [num(fd, "id")]);
+  try { await exec("DELETE FROM tags WHERE id = $1", [num(fd, "id")]); }
+  catch (error) { const failure = publicationFailure(error); if (failure) redirect(`/admin/taxonomy?e=${failure.code}`); throw error; }
   await logActivity(me, "حذف وسماً", tag.name);
   redirect("/admin/taxonomy?m=deleted");
 }
@@ -404,7 +452,8 @@ export async function updateProfile(fd: FormData) {
   const me = await requireUser();
   const name = str(fd, "name", 80);
   if (!name) redirect("/admin/account?e=invalid");
-  await exec("UPDATE users SET name = $1, bio = $2 WHERE id = $3", [name, str(fd, "bio", 500), me.id]);
+  try { await exec("UPDATE users SET name = $1, bio = $2 WHERE id = $3", [name, str(fd, "bio", 500), me.id]); }
+  catch (error) { const failure = publicationFailure(error); if (failure) redirect(`/admin/account?e=${failure.code}`); throw error; }
   redirect("/admin/account?m=saved");
 }
 

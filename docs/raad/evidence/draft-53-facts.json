@@ -1,0 +1,67 @@
+{
+  "version": "raad.editorial-evidence/1",
+  "articleId": 53,
+  "site": "https://www.shurfh.com",
+  "purpose": "One-off editorial verification and draft improvement only; not a feed, publication licence or live activation",
+  "sourceUrls": {
+    "okaz": "https://www.okaz.com.sa/local/na/2272333",
+    "seti": "https://www.seti.org/news/laserseti-stations-in-saudi-arabia/"
+  },
+  "publicationDates": {
+    "okazDisplayed": "25 أكتوبر 2026 - 13:33",
+    "okazTimezone": "unknown",
+    "setiDisplayed": "Thursday, Oct 22, 2026",
+    "installationDateStatedBySeti": "August 19, 2026"
+  },
+  "editorialAngle": "A dated science follow-up explaining what the AlUla stations do, not a claim of an opening today or extraterrestrial detection",
+  "freshnessException": {
+    "reason": "Improve an existing internal draft as a clearly dated explanatory follow-up; the primary announcement is 22 October and installation 19 August, so do not present it as a new event today",
+    "publicNewsSlotApproved": false
+  },
+  "facts": [
+    { "id": "c1", "text": "SETI Institute reports two LaserSETI stations at AlUla Manara in northwest Saudi Arabia are fully operational.", "evidenceIds": ["e1"] },
+    { "id": "c2", "text": "SETI dates the station installation to 19 August 2026 and its announcement to 22 October 2026; those dates must not be conflated with today's coverage.", "evidenceIds": ["e2", "e6"] },
+    { "id": "c3", "text": "According to the project's primary announcement, AlUla is its first observing site in Asia and fifth worldwide; attribute this ranking to SETI.", "evidenceIds": ["e3"] },
+    { "id": "c4", "text": "The system uses wide-field cameras and diffraction gratings to watch large areas of sky for brief optical events; it is not a report of detected extraterrestrial life.", "evidenceIds": ["e4"] },
+    { "id": "c5", "text": "Geographically distributed observations support comparison of events seen from different locations, according to the announcement.", "evidenceIds": ["e5"] }
+  ],
+  "evidence": [
+    { "id": "e1", "sourceId": "seti", "excerpt": "Two new LaserSETI stations at AlUla Manara in northwest Saudi Arabia are fully operational.", "location": "At a Glance", "context": "Primary project announcement, not independent certification", "attribution": "SETI Institute" },
+    { "id": "e2", "sourceId": "seti", "excerpt": "The two stations were installed on August 19, 2026", "location": "A New View of the Sky", "context": "Installation date, distinct from announcement date", "attribution": "SETI Institute" },
+    { "id": "e3", "sourceId": "seti", "excerpt": "first observing site in Asia and its fifth site worldwide", "location": "At a Glance", "context": "Ranking as stated by the project itself", "attribution": "SETI Institute" },
+    { "id": "e4", "sourceId": "seti", "excerpt": "Its wide-field cameras and diffraction gratings watch large areas of the sky continuously", "location": "Main announcement, system explanation", "context": "Optical observing method; no discovery of life is asserted", "attribution": "SETI Institute" },
+    { "id": "e5", "sourceId": "seti", "excerpt": "compare unusual events seen from different places", "location": "Main announcement, location explanation", "context": "Value of distributed observations", "attribution": "SETI Institute" },
+    { "id": "e6", "sourceId": "seti", "excerpt": "Thursday, Oct 22, 2026", "location": "Publication date", "context": "Displayed announcement date without an inferred time", "attribution": "SETI Institute" }
+  ],
+  "sourceRelationship": "Okaz and SETI are not counted as independent confirmations of separate observations. SETI is the primary project statement; Okaz is the owner-approved news reference reporting the same event.",
+  "duplicateCheck": {
+    "urls": ["https://www.shurfh.com/search?q=LaserSETI", "https://www.shurfh.com/search?q=%D9%81%D9%84%D9%83"],
+    "observed": "Both public searches displayed لا توجد نتائج مطابقة.",
+    "scope": "Limited published-search check, not a semantic scan of all drafts or database records"
+  },
+  "media": {
+    "file": "docs/raad/media/shurfa-alula-lasersetI-illustration.png",
+    "width": 1200,
+    "height": 675,
+    "bytes": 39431,
+    "sha256": "fd470e814ece308ec7796f292e70e923cba8f9b1b9d8d46e723913daf2781f0a",
+    "ownership": "original-created-for-shurfa",
+    "generationProof": "scripts/raad/create-draft-53-card.ps1; original geometric artwork and text, no downloaded publisher imagery",
+    "kind": "illustrative",
+    "label": "صورة توضيحية أصلية — ليست صورة للمحطتين",
+    "proposedAlt": "بطاقة توضيحية أصلية عن الرصد الفلكي في العلا وشبكة LaserSETI، وليست صورة للمحطتين"
+  },
+  "constraints": {
+    "livePublishing": false,
+    "schedulerInstalled": false,
+    "automatedCollection": false,
+    "articleRepublication": false,
+    "imageReuse": false,
+    "operationalAuthorization": false,
+    "copiedArticleBodiesStored": false,
+    "externalPhotosUsed": false,
+    "keepCmsStatus": "draft",
+    "cmsSeoMapping": "CMS title becomes page title; excerpt becomes meta description; distinct SEO columns do not exist in the current CMS",
+    "cmsAltMapping": "Current image markup derives ALT from article title; proposed custom ALT cannot be claimed saved as an independent field"
+  }
+}

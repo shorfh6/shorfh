@@ -1,0 +1,26 @@
+{
+  "version": "raad.contract/1",
+  "ownerApproval": "editorial-only",
+  "sources": [
+    {
+      "id": "okaz",
+      "name": "عكاظ",
+      "url": "https://www.okaz.com.sa/",
+      "approvalScope": "editorial-reference-only",
+      "approvedBy": "owner",
+      "automatedCollection": false,
+      "articleRepublication": false,
+      "imageReuse": false,
+      "rightsStatus": "permission-pending",
+      "discovery": {
+        "type": "rss-index",
+        "url": "https://www.okaz.com.sa/rss",
+        "feedVerified": false
+      },
+      "policy": {
+        "url": "https://www.okaz.com.sa/privacy-policy",
+        "reviewedOn": "2026-10-25"
+      }
+    }
+  ]
+}

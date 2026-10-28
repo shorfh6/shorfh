@@ -1,10 +1,11 @@
 // Imports the latest posts per category from news50.sa (WordPress REST API) into
-// PostgreSQL + Supabase Storage as published articles.
+// PostgreSQL + Supabase Storage as DRAFTS. Editorial approval is a separate step.
 // Usage: node scripts/import-news50.mjs [--per-category=10] [--dry-run]
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import pg from "pg";
+import { randomBytes } from "node:crypto";
 import { pgConnectionOptions } from "./pg-options.mjs";
 
 try {
@@ -71,10 +72,10 @@ async function uploadImage(postId, media) {
   if (!ext) return "";
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length === 0 || buf.length > 5 * 1024 * 1024) return "";
-  const name = `n50-${postId}.${ext}`;
+  const name = `n50-${postId}-${randomBytes(12).toString("hex")}.${ext}`;
   const up = await fetch(`${process.env.SUPABASE_URL}/storage/v1/object/${BUCKET}/${name}`, {
     method: "POST",
-    headers: { ...supaHeaders(), "content-type": mime, "x-upsert": "true" },
+    headers: { ...supaHeaders(), "content-type": mime, "x-upsert": "false" },
     body: new Uint8Array(buf),
   });
   if (!up.ok) throw new Error(`Storage upload failed (${up.status}) for ${name}`);
@@ -99,11 +100,9 @@ try {
   const existing = new Set(
     (await client.query("SELECT source_url FROM articles WHERE source_url != ''")).rows.map((r) => r.source_url),
   );
-  const hasFeatured = (await client.query("SELECT 1 FROM articles WHERE status = 'published' AND featured LIMIT 1")).rowCount > 0;
 
   const summary = [];
   const seedOut = [];
-  let featuredUsed = hasFeatured;
 
   for (const [slug, wpCat] of Object.entries(CATS)) {
     const posts = await getJson(
@@ -153,15 +152,17 @@ try {
       console.log(`\n${slug} (${items.length} posts):`);
       titles.forEach((t) => console.log(`  - ${t}`));
     } else {
-      let i = 0;
       for (const it of items) {
-        i++;
-        if (it.skipExisting) {
+        if (it.skipExisting || existing.has(it.url)) {
           skippedExisting++;
           continue;
         }
-        const featured = slug === "local" && i === 1 && !featuredUsed; // newest local post, only if no featured exists
-        if (featured) featuredUsed = true;
+        await client.query("BEGIN");
+        try {
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [it.url]);
+        if ((await client.query("SELECT 1 FROM articles WHERE source_url=$1", [it.url])).rowCount) {
+          await client.query("COMMIT"); existing.add(it.url); skippedExisting++; continue;
+        }
         let image = "";
         try {
           image = await uploadImage(it.postId, it.media);
@@ -171,10 +172,10 @@ try {
         if (!image) noImage++;
         const r = await client.query(
           `INSERT INTO articles (title, excerpt, body, image, category_id, author_id, status, featured, exclusive, source_url, views, published_at, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, 'published', $7, false, $8, $9, $10, $11, $12) RETURNING id`,
+           VALUES ($1, $2, $3, $4, $5, $6, 'draft', false, false, $7, 0, NULL, $8, $8) RETURNING id`,
           [
-            it.title, it.excerpt, it.body, image, catId[slug], userId[AUTHORS[slug]], featured,
-            it.url, Math.floor(Math.random() * 900) + 50, it.iso, it.iso, it.iso,
+            it.title, it.excerpt, it.body, image, catId[slug], userId[AUTHORS[slug]],
+            it.url, new Date().toISOString(),
           ],
         );
         for (const t of it.tags) {
@@ -186,8 +187,11 @@ try {
               tr.rows[0].id,
             ]);
         }
+        await client.query("COMMIT");
+        existing.add(it.url);
         it.image = image;
         inserted++;
+        } catch (error) { await client.query("ROLLBACK"); throw error; }
       }
       seedOut.push(...items.map(({ postId, media, skipExisting, iso, ...rest }) => rest));
     }

@@ -32,7 +32,7 @@ npm run dev
 للإنتاج:
 
 ```bash
-npm run build && npm start   # npm start يشغّل المهاجرات أولاً ثم next start
+npm run build && npm start   # يبدأ Next.js فقط؛ الترحيلات ينفذها مشغّل موثوق مسبقًا
 ```
 
 ## الحسابات التجريبية
@@ -54,8 +54,8 @@ npm run build && npm start   # npm start يشغّل المهاجرات أولا�
 راجع `.env.example`:
 
 - `DATABASE_URL` — عنوان اتصال PostgreSQL. في Supabase استخدم **Session Pooler** (المنفذ 5432) وأضف `?sslmode=require`.
-- `DATABASE_SSL` — اتركه غير مضبوط (الافتراضي: TLS بلا تحقق من سلسلة الشهادات)؛ عيّنه `false` فقط لقاعدة محلية بلا TLS. وجود `?sslmode=require` في `DATABASE_URL` صحيح ومتوقع (تتم إزالته ومعالجة TLS عبر خيارات الاتصال).
-- `DATABASE_CA_CERT` — اختياري: شهادة CA من Supabase (Project Settings → Database → SSL → "Download certificate") بصيغة PEM على سطر واحد مع `\n` بدل فواصل الأسطر. عند تعيينه يتم التحقق الكامل من سلسلة الشهادات؛ بدونه يعمل TLS دون تحقق من السلسلة.
+- `DATABASE_SSL` — اتركه غير مضبوط: الافتراضي TLS مع التحقق من الشهادة واسم المضيف. `false` أو `sslmode=disable` مسموحان فقط على loopback المحلي، ويُرفضان لاتصال بعيد. وجود `?sslmode=require` صحيح؛ تعالج الخيارات المشتركة TLS صراحة دون السماح لـ`sslmode` بتعطيل التحقق.
+- `DATABASE_CA_CERT` — شهادة CA موثوقة بصيغة PEM عند حاجة الخادم إليها؛ تقبل فواصل أسطر فعلية أو `\n`. دونها يُستخدم مخزن الثقة الافتراضي لـNode.js، ويفشل الاتصال عند عدم الوثوق بالشهادة. لا تضع `ssl` أو `sslcert` أو `sslkey` أو `sslrootcert` أو `sslnegotiation` في عنوان الاتصال؛ تُرفض لتجنب استبدال إعدادات التحقق داخل pg.
 - `SUPABASE_URL` — عنوان مشروع Supabase.
 - `SUPABASE_SERVICE_ROLE_KEY` — مفتاح الخدمة، **للخادم فقط**؛ لا تستخدمه أبداً مع `NEXT_PUBLIC_`.
 - `SUPABASE_STORAGE_BUCKET` — اسم الحاوية (الافتراضي `article-images`).
@@ -95,11 +95,15 @@ node scripts/migrate-sqlite-to-pg.mjs --articles --images
 3. أنشئ حاوية التخزين: شغّل `npm run setup:storage` محلياً مع المتغيرات مضبوطة، أو أنشئ حاوية خاصة `article-images` من لوحة Supabase.
 4. في Render: **New → Blueprint** واختر المستودع — `render.yaml` يعرف الخدمة (`healthCheckPath: /api/health`).
 5. عيّن المتغيرات السرية: `DATABASE_URL`، `SUPABASE_URL`، `SUPABASE_SERVICE_ROLE_KEY`، `SITE_URL`.
-6. أول نشر: `npm ci && npm run build` ثم `npm start` يشغّل `scripts/migrate.mjs` تلقائياً قبل `next start`.
+6. أول نشر: نفّذ `npm run migrate` بحساب ترحيل موثوق قبل بدء الخدمة، ثم `npm ci && npm run build` و`npm start`. لا تورّث اتصال مالك القاعدة إلى عملية Next.js.
+
+### بوابة اعتماد الأخبار
+
+الكود المحلي يفرض اعتمادًا مطابقًا للنسخة قبل النشر، مع فحص الصورة. تركيب بوابة SQL وفصل حساب الناشر عن حساب منسق الاعتماد خطوتان إنتاجيتان صريحتان تتطلبان موافقة المالك؛ ليستا ضمن ترحيلات بدء الخدمة. اتبع [خطة الترحيل والرجوع](docs/raad/PUBLICATION-GATE.md). الأخبار الموجودة تسجّل كنسخ منشورة سابقة غير معتمدة بالنظام الجديد، لا كموافقات بأثر رجعي. أدوات البذر والترحيل القديمة لا تتجاوز بوابة النشر.
 
 ## أمان
 
-- كل الجداول تفعّل **Row Level Security** بدون سياسات: واجهة Supabase Data API (PostgREST) لا ترى أي بيانات؛ اتصال `DATABASE_URL` يستخدم دور postgres ويتجاوز RLS.
+- التهيئة الأساسية تفعّل **Row Level Security** وتمنع وصول أدوار Data API المعتادة. بوابة RAAD تمنح حساب خادم الناشر المحدود سياسات منفصلة، وتحجب إنشاء الاعتماد عنه. تشغيل الويب باتصال postgres المالك لا يحقق فصل الصلاحيات المطلوب؛ لا تُفعّل البوابة إنتاجيًا دون تطبيق خطة الحسابات والتحقق من TLS.
 - مفتاح `service_role` يبقى على الخادم فقط (Server Actions وRoute Handlers).
 - حاوية الصور **خاصة**؛ صور الأخبار المنشورة تُقدَّم عبر مسار التطبيق `/uploads/[name]` بعد فحص الحالة في قاعدة البيانات.
 

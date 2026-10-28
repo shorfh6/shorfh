@@ -7,3 +7,5 @@ data/
 !.env.example
 .seed-password.local
 supabase/
+.raad-local/
+.playwright-mcp/

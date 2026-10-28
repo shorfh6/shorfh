@@ -31,7 +31,7 @@ export async function putImage(name: string, buf: Buffer, contentType: string): 
   requireConfigured();
   if (storageDriver === "local") {
     mkdirSync(UPLOAD_DIR, { recursive: true });
-    await writeFile(path.join(/*turbopackIgnore: true*/ UPLOAD_DIR, name), buf);
+    await writeFile(path.join(/*turbopackIgnore: true*/ UPLOAD_DIR, name), buf, { flag: "wx" });
     return;
   }
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${name}`, {
@@ -69,7 +69,7 @@ export async function getImage(name: string): Promise<{ body: ReadableStream; co
       return null;
     }
   }
-  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/${BUCKET}/${name}`, { headers: authHeaders() });
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/${BUCKET}/${name}`, { headers: authHeaders(), signal: AbortSignal.timeout(10000) });
   if (res.status === 404) return null;
   if (!res.ok || !res.body) throw new Error(`Storage download failed (${res.status})`);
   const len = Number(res.headers.get("content-length"));

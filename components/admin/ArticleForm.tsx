@@ -118,9 +118,9 @@ export default function ArticleForm({ article, categories, tags, selectedTagIds,
             <button name="intent" value="save" className="btn-primary" disabled={pending}>
               حفظ
             </button>
-            <button name="intent" value="publish" className="btn-ok" disabled={pending}>
-              حفظ ونشر
-            </button>
+            {article && <button name="intent" value="publish" className="btn-ok" disabled={pending}>
+              نشر النسخة المعتمدة
+            </button>}
             {article && article.status !== "draft" && (
               <button name="intent" value="draft" className="btn-ghost" disabled={pending}>
                 تحويل إلى مسودة
@@ -138,6 +138,7 @@ export default function ArticleForm({ article, categories, tags, selectedTagIds,
           </>
         )}
       </div>
+      {reviewer && <p className="muted">النشر يتطلب اعتمادًا مسجلًا مطابقًا للنص والصورة والتصنيف والوسوم. هذا الزر لا ينشئ اعتمادًا. احفظ التعديلات كمسودة ثم أعد المراجعة.</p>}
     </form>
   );
 }

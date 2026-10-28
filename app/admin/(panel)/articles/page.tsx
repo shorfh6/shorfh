@@ -121,8 +121,8 @@ export default async function ArticlesPage({ searchParams }: Props) {
                     {reviewer && a.status !== "published" && (
                       <form action={approveArticle}>
                         <input type="hidden" name="id" value={a.id} />
-                        <ConfirmButton message="اعتماد الخبر ونشره؟" className="btn-link ok">
-                          قبول
+                        <ConfirmButton message="نشر النسخة التي اجتازت المراجعات واعتمدها المعتمد؟" className="btn-link ok">
+                          نشر المعتمد
                         </ConfirmButton>
                       </form>
                     )}

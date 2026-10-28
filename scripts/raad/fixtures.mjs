@@ -1,0 +1,35 @@
+// All names, statements and source proofs below are fabricated contract data.
+export const NOW = Date.parse('2026-01-15T12:00:00Z');
+export function fixture() {
+  return {
+    synthetic: 'SYNTHETIC NOT REAL NEWS', storyKey: 'synthetic-example-001',
+    title: 'SYNTHETIC NOT REAL NEWS: fictional exhibit', slug: 'synthetic-fictional-exhibit',
+    site: { origin: 'https://news.example', author: 'Synthetic fixture author', publisher: 'Synthetic fixture publisher' },
+    category: 'fixture-section', categories: { version: 'snapshot-1', allowed: ['fixture-section'] },
+    policy: { version: 'policy-1', maxAgeMs: 86_400_000, trustedSources: ['fixture-publisher'] },
+    risk: 'ordinary', conflicts: [],
+    sources: [{ id: 's1', publisher: 'fixture-publisher', approved: true,
+      timestamp: '2026-01-15T11:00:00Z', proof: 'synthetic-proof-not-a-real-source' }],
+    claims: [{ id: 'c1', text: 'SYNTHETIC NOT REAL NEWS: a fictional exhibit opened.',
+      evidence: ['s1'], verification: 'verified' }],
+    draft: { text: 'SYNTHETIC NOT REAL NEWS: a fictional exhibit opened.', claimIds: ['c1'] },
+    media: { assetHash: 'synthetic-original-card-v1', ownership: 'owned', kind: 'illustrative',
+      url: 'https://news.example/media/synthetic-original-card.svg',
+      alt: 'Synthetic illustrative card for a fictional exhibit; not a documentary photograph',
+      label: 'Illustrative — not a documentary photograph', license: 'original-owned',
+      attribution: 'Synthetic fixture studio', rightsApproved: true },
+    metadata: { approved: true,
+      seoTitle: 'SYNTHETIC NOT REAL NEWS: fictional exhibit overview',
+      metaDescription: 'SYNTHETIC NOT REAL NEWS: a fictional exhibit used only for offline editorial contract tests.',
+      canonical: 'https://news.example/fixture-section/synthetic-fictional-exhibit',
+      newsArticle: { '@context': 'https://schema.org', '@type': 'NewsArticle',
+        headline: 'SYNTHETIC NOT REAL NEWS: fictional exhibit', articleSection: 'fixture-section',
+        description: 'SYNTHETIC NOT REAL NEWS: a fictional exhibit used only for offline editorial contract tests.',
+        url: 'https://news.example/fixture-section/synthetic-fictional-exhibit',
+        mainEntityOfPage: 'https://news.example/fixture-section/synthetic-fictional-exhibit',
+        author: { '@type': 'Person', name: 'Synthetic fixture author' },
+        publisher: { '@type': 'Organization', name: 'Synthetic fixture publisher' },
+        image: 'https://news.example/media/synthetic-original-card.svg',
+        datePublished: '2026-01-15T11:30:00.000Z', dateModified: '2026-01-15T11:45:00.000Z' } },
+  };
+}

@@ -4,7 +4,7 @@ import JsonLd from "@/components/JsonLd";
 import { absoluteUrl, siteOrigin } from "@/lib/seo";
 import "./globals.css";
 
-const cairo = Cairo({ subsets: ["arabic", "latin"], weight: ["400", "600", "700", "800"], variable: "--font-cairo" });
+const cairo = Cairo({ subsets: ["arabic", "latin"], variable: "--font-cairo" });
 const kufi = Reem_Kufi({ subsets: ["arabic", "latin"], weight: ["700"], variable: "--font-kufi" });
 
 export const metadata: Metadata = {

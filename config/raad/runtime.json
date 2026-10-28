@@ -1,0 +1,7 @@
+{
+  "version": "raad.contract/1",
+  "mode": "dry-run",
+  "pollIntervalSeconds": 300,
+  "livePublishing": false,
+  "schedulerInstalled": false
+}

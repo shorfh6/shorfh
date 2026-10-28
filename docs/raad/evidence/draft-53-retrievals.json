@@ -1,0 +1,23 @@
+{
+  "version": "raad.source-retrieval-proof/1",
+  "agent": "al-muhaqqiq",
+  "childSessionId": "ses_e8cbe6b71ffe4Mzlq0adabxqn3",
+  "records": [
+    {
+      "url": "https://www.seti.org/news/laserseti-stations-in-saudi-arabia/",
+      "startedAt": "2026-10-25T13:30:54.894Z",
+      "completedAt": "2026-10-25T13:30:55.853Z",
+      "toolResultUtf8Bytes": 30596,
+      "toolResultSha256": "6c9c0f5db1a6fdd28887f1a2e1a4da0ae24e0c076fc33dac989f61199f6e3743",
+      "capture": "Digest of actual persisted OpenCode webfetch result, not raw HTTP bytes; article body is not copied into this record"
+    },
+    {
+      "url": "https://www.okaz.com.sa/local/na/2272333",
+      "startedAt": "2026-10-25T13:31:05.173Z",
+      "completedAt": "2026-10-25T13:31:05.631Z",
+      "toolResultUtf8Bytes": 26532,
+      "toolResultSha256": "2ff7c5dfd984b4b4673944b55b87be4d4612ca791b188698ac904eb06177035f",
+      "capture": "Digest of actual persisted OpenCode webfetch result, not raw HTTP bytes; article body is not copied into this record"
+    }
+  ]
+}
