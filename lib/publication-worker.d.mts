@@ -4,6 +4,7 @@ export type PublicationJob={
   lastError:string|null;receipt:Record<string,unknown>|null;
 };
 export function workerAuthorized(value:unknown,secret:unknown):boolean;
+export function resolveWorkerAccess(value:unknown,env:{RAAD_WORKER_SECRET?:string;RAAD_WORKER_ENABLED?:string},loadStored:()=>Promise<{secret?:string;enabled?:boolean}|null>):Promise<{authorized:boolean;enabled:boolean}>;
 export function runPublicationTick(adapter:{
   claim(worker:string):Promise<PublicationJob|null>;
   publish(job:PublicationJob,worker:string):Promise<PublicationJob>;

@@ -3,6 +3,16 @@ import {assertPublicationApproved,lockPublicationScope} from "./publication";
 import {getImage} from "./storage";
 import {runPublicationTick,type PublicationJob} from "./publication-worker.mjs";
 
+let cachedConfiguration:{until:number;value:Promise<{secret?:string;enabled?:boolean}|null>}|undefined;
+export async function storedWorkerConfiguration(){
+  if(!cachedConfiguration||cachedConfiguration.until<=Date.now()){
+    const origin=process.env.SITE_URL??"";
+    const value=one<{configuration:{secret?:string;enabled?:boolean}|null}>("SELECT raad_queue.worker_configuration($1) AS configuration",[origin]).then(row=>row?.configuration??null);
+    cachedConfiguration={until:Date.now()+5000,value};
+  }
+  return cachedConfiguration.value;
+}
+
 export async function runApprovedPublicationTick(){
   const adapter={
     async claim(worker:string){

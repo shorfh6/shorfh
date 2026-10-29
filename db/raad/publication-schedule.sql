@@ -103,4 +103,15 @@ BEGIN
   UPDATE raad_queue.schedule_config SET enabled=false,cron_job_id=NULL,updated_at=clock_timestamp() WHERE singleton;
   INSERT INTO raad_queue.schedule_audit(event) VALUES('disabled');
 END $$;
+-- A narrowly scoped runtime read keeps the key in Vault instead of duplicating
+-- management credentials in service environments. It cannot read other secrets
+-- or change/activate the schedule, and requires the configured site identity.
+CREATE OR REPLACE FUNCTION raad_queue.worker_configuration(p_origin text) RETURNS jsonb
+LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $$
+  SELECT jsonb_build_object('enabled',c.enabled,'secret',s.decrypted_secret)
+    FROM raad_queue.schedule_config c JOIN vault.decrypted_secrets s ON s.id=c.worker_secret_id
+    WHERE c.singleton AND c.origin=p_origin
+$$;
 REVOKE ALL ON FUNCTION raad_queue.configure_schedule(text,uuid,uuid),raad_queue.dispatch_tick(),raad_queue.activate_schedule(),raad_queue.pause_schedule() FROM PUBLIC,raad_gate_publisher,raad_gate_approver;
+REVOKE ALL ON FUNCTION raad_queue.worker_configuration(text) FROM PUBLIC,raad_gate_approver;
+GRANT EXECUTE ON FUNCTION raad_queue.worker_configuration(text) TO raad_gate_publisher;

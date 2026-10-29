@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {runPublicationTick,workerAuthorized} from '../../lib/publication-worker.mjs';
+import {runPublicationTick,workerAuthorized,resolveWorkerAccess} from '../../lib/publication-worker.mjs';
 
 const worker='1'.repeat(64),job={id:'synthetic-job',articleId:1,fence:'9007199254740993',state:'leased'};
 function fixture(){const calls=[];const adapter={claim:async w=>{calls.push(['claim',w]);return job;},publish:async(j,w)=>{calls.push(['publish',j,w]);return{...j,state:'completed'};},fail:async(j,w,reason)=>{calls.push(['fail',j,w,reason]);return{...j,state:'pending'};},uncertain:async(j,w)=>{calls.push(['uncertain',j,w]);return{...j,state:'uncertain'};}};return{adapter,calls};}
@@ -37,4 +37,19 @@ test('failed reconciliation preserves uncertainty without leaking diagnostics',a
 });
 test('invalid worker identity is rejected before accessing the queue',async()=>{
   const{adapter,calls}=fixture();await assert.rejects(runPublicationTick(adapter,'not-a-hash'),/RAAD_QUEUE_ARGUMENTS/);assert.deepEqual(calls,[]);
+});
+test('unauthenticated requests cannot trigger secret/configuration database reads',async()=>{
+  let read=false;assert.deepEqual(await resolveWorkerAccess(null,{},async()=>{read=true;}),{authorized:false,enabled:false});assert.equal(read,false);
+});
+test('configured environment identity never silently falls back to another credential',async()=>{
+  let read=false;const value='SYNTHETIC-worker-request-key-000000';const access=await resolveWorkerAccess(value,{RAAD_WORKER_SECRET:'short',RAAD_WORKER_ENABLED:'true'},async()=>{read=true;return{secret:value,enabled:true};});assert.equal(access.authorized,false);assert.equal(read,false);
+});
+test('Vault-backed runtime key and enable state are resolved without returning the key',async()=>{
+  const key='SYNTHETIC-worker-request-key-000000';assert.deepEqual(await resolveWorkerAccess(key,{},async()=>({secret:key,enabled:true})),{authorized:true,enabled:true});
+});
+test('paused Vault configuration permits authenticated disabled response but no tick',async()=>{
+  const key='SYNTHETIC-worker-request-key-000000';assert.deepEqual(await resolveWorkerAccess(key,{},async()=>({secret:key,enabled:false})),{authorized:true,enabled:false});
+});
+test('missing stored configuration fails closed',async()=>{
+  assert.deepEqual(await resolveWorkerAccess('SYNTHETIC-worker-request-key-000000',{},async()=>null),{authorized:false,enabled:false});
 });
