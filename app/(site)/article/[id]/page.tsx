@@ -17,7 +17,7 @@ import {
   mostViewed,
   relatedArticles,
 } from "@/lib/queries";
-import { coverStyle, formatDate, formatDateTime, imageUrl, readingTimeLabel } from "@/lib/format";
+import { articleImageAlt, coverStyle, formatDate, formatDateTime, imageUrl, readingTimeLabel } from "@/lib/format";
 import { absoluteUrl } from "@/lib/seo";
 
 type Props = { params: Promise<{ id: string }> };
@@ -36,11 +36,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: absoluteUrl(`/article/${a.id}`),
       publishedTime: a.published_at ?? undefined,
       authors: a.author_name ? [a.author_name] : undefined,
-      images: a.image ? [imageUrl(a.image)] : undefined,
+      images: a.image ? [{ url: absoluteUrl(imageUrl(a.image)), alt: articleImageAlt(a) }] : undefined,
       locale: "ar_SA",
       siteName: "شُرفة",
     },
-    twitter: { card: "summary_large_image", title: a.title, description: a.excerpt, images: a.image ? [imageUrl(a.image)] : undefined },
+    twitter: { card: "summary_large_image", title: a.title, description: a.excerpt, images: a.image ? [{ url: absoluteUrl(imageUrl(a.image)), alt: articleImageAlt(a) }] : undefined },
   };
 }
 
@@ -129,7 +129,7 @@ export default async function ArticlePage({ params }: Props) {
           </div>
           {updated && <p className="updated">آخر تحديث: {formatDateTime(a.updated_at)}</p>}
 
-          {a.image && <div className="img" style={coverStyle(a.image)} role="img" aria-label={a.title} />}
+          {a.image && <div className="img" style={coverStyle(a.image)} role="img" aria-label={articleImageAlt(a)} />}
 
           <div className="body">
             <ArticleBody text={a.body} />

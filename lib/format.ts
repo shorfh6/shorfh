@@ -11,6 +11,11 @@ export const imageUrl = (img: string) => (!img ? "" : /^https?:\/\//.test(img) ?
 
 export const coverStyle = (img: string) => (img ? { backgroundImage: `url("${imageUrl(img)}")` } : undefined);
 
+export function articleImageAlt(article: { title: string; body?: string }) {
+  const caption = article.body?.split(/\r?\n/).find((line) => /^الصورة بطاقة توضيحية أصلية من شُرفة/.test(line.trim()));
+  return caption?.trim().slice(0, 500) || article.title;
+}
+
 export const formatDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" }) : "—";
 
