@@ -68,12 +68,35 @@ export async function recordApproval(client, packet, supporting) {
   return {articleId:p.articleId,approvalId:r.rows[0].id};
 }
 
+export async function recordAndQueueApproval(client,packet,supporting){
+  const p=validateApprovalPacket(packet,supporting);
+  let committing=false;
+  await client.query('BEGIN');
+  try{
+    const existing=(await client.query('SELECT raad_queue.find_request($1,$2,$3,$4) AS work',[p.articleId,p.taskHash,p.resultHash,p.policyHash])).rows[0]?.work;
+    let result;
+    if(existing)result={articleId:p.articleId,approvalId:existing.approvalId,jobId:existing.id,queueState:existing.state};
+    else{
+      const recorded=await recordApproval(client,packet,supporting);
+      const work=(await client.query('SELECT raad_queue.enqueue($1,$2) AS work',[recorded.articleId,recorded.approvalId])).rows[0]?.work;
+      check(work?.id,'QUEUE_ENQUEUE_FAILED');
+      result={...recorded,jobId:work.id,queueState:work.state};
+    }
+    committing=true;await client.query('COMMIT');return result;
+  }catch(error){
+    try{await client.query('ROLLBACK');}catch{/* The outcome may need reconciliation. */}
+    if(committing)throw Error('APPROVAL_IMPORT_OUTCOME_UNKNOWN');
+    throw error;
+  }
+}
+
 function loadPacket(directory,event) {
   const read=(name,limit)=>{const file=path.join(directory,name),s=fs.lstatSync(file);check(s.isFile()&&!s.isSymbolicLink()&&s.size<=limit,'UNSAFE_REVIEW_FILE');return JSON.parse(fs.readFileSync(file,'utf8'));};
   return {task:read(`snapshots/${event.taskDigest}.json`,1024*1024),result:read(`snapshots/${event.resultDigest}.json`,1024*1024),proof:read(`${event.resultDigest}.review-proof.json`,128*1024)};
 }
 export async function main(args) {
-  check(args.length===5 && args[0]==='--journal' && args[2]==='--result-digest' && args[4]==='--execute','EXPLICIT_IMPORT_ARGUMENTS_REQUIRED');
+  const enqueue=args.length===6&&args[5]==='--enqueue';
+  check((args.length===5||enqueue) && args[0]==='--journal' && args[2]==='--result-digest' && args[4]==='--execute','EXPLICIT_IMPORT_ARGUMENTS_REQUIRED');
   const directory=path.resolve(args[1]); check(path.isAbsolute(args[1])&&digest(args[3]),'INVALID_IMPORT_REFERENCE');
   const events=openJournal(directory).readAudit().filter(e=>e.type==='result');
   const event=events.find(e=>e.resultDigest===args[3]); check(event,'REVIEW_RESULT_NOT_FOUND');
@@ -85,7 +108,7 @@ export async function main(args) {
   check(process.env.RAAD_APPROVAL_DATABASE_URL,'APPROVER_CONNECTION_REQUIRED');
   const options=securePgConnectionOptions(process.env.RAAD_APPROVAL_DATABASE_URL,{ca:process.env.RAAD_APPROVAL_DB_CA_CERT});
   const client=new pg.Client({...options,connectionTimeoutMillis:5000,statement_timeout:10000});
-  await client.connect(); try{return await recordApproval(client,final,supporting);}finally{await client.end();}
+  await client.connect(); try{return await (enqueue?recordAndQueueApproval(client,final,supporting):recordApproval(client,final,supporting));}finally{await client.end();}
 }
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
   main(process.argv.slice(2)).then(r=>console.log(JSON.stringify(r))).catch(error=>{console.error(JSON.stringify({error:/^[A-Z_]+$/.test(error.message)?error.message:'APPROVAL_IMPORT_FAILED'}));process.exitCode=1;});

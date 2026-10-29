@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createTask,contentHash } from './envelope.mjs';
-import { validateApprovalPacket,recordApproval } from './import-publication-approval.mjs';
+import { validateApprovalPacket,recordApproval,recordAndQueueApproval } from './import-publication-approval.mjs';
 
 const cp=v=>structuredClone(v),hex='a'.repeat(64);
 function fixture(changeSnapshot=()=>{}) {
@@ -58,4 +58,25 @@ test('old final reviews without a bound database snapshot are not retroactive ap
 test('invalid review never opens the database writer',async()=>{
   const {final,supporting}=fixture();final.proof.childFinalMatched=false;let called=false;
   await assert.rejects(recordApproval({query:async()=>{called=true;}},final,supporting));assert.equal(called,false);
+});
+test('approval and publication request commit on the same dedicated client',async()=>{
+  const{final,supporting}=fixture(),calls=[];
+  const client={query:async(sql,args)=>{calls.push(sql);if(sql.includes('find_request'))return{rows:[{work:null}]};if(sql.includes('record_approval'))return{rows:[{id:'synthetic-approval'}]};if(sql.includes('enqueue'))return{rows:[{work:{id:'synthetic-job',state:'pending'}}]};return{rows:[]};}};
+  const result=await recordAndQueueApproval(client,final,supporting);assert.equal(result.jobId,'synthetic-job');assert.equal(calls[0],'BEGIN');assert.equal(calls.at(-1),'COMMIT');assert.equal(calls.length,5);
+});
+test('retry after a lost result recovers the same completed job without minting approval',async()=>{
+  const{final,supporting}=fixture(),calls=[];const client={query:async sql=>{calls.push(sql);return{rows:[{work:{id:'synthetic-job',approvalId:'synthetic-approval',state:'completed'}}]};}};
+  const result=await recordAndQueueApproval(client,final,supporting);assert.equal(result.queueState,'completed');assert.equal(calls.length,3);assert.equal(calls.some(s=>s.includes('record_approval')),false);
+});
+test('enqueue failure rolls back the new approval transaction',async()=>{
+  const{final,supporting}=fixture(),calls=[];const client={query:async sql=>{calls.push(sql);if(sql.includes('find_request'))return{rows:[{work:null}]};if(sql.includes('record_approval'))return{rows:[{id:'synthetic'}]};if(sql.includes('enqueue'))throw Error('QUEUE_ENQUEUE_FAILED');return{rows:[]};}};
+  await assert.rejects(recordAndQueueApproval(client,final,supporting),/QUEUE_ENQUEUE_FAILED/);assert.equal(calls.at(-1),'ROLLBACK');assert.equal(calls.includes('COMMIT'),false);
+});
+test('lost COMMIT response is explicitly uncertain rather than successful or retried',async()=>{
+  const{final,supporting}=fixture(),calls=[];const client={query:async sql=>{calls.push(sql);if(sql==='COMMIT'||sql==='ROLLBACK')throw Error('private connection detail');return{rows:[{work:{id:'synthetic-job',approvalId:'synthetic',state:'pending'}}]};}};
+  await assert.rejects(recordAndQueueApproval(client,final,supporting),error=>error.message==='APPROVAL_IMPORT_OUTCOME_UNKNOWN');assert.equal(calls.filter(s=>s==='COMMIT').length,1);
+});
+test('invalid queued packet performs no transaction or database call',async()=>{
+  const{final,supporting}=fixture();final.proof.childFinalMatched=false;let called=false;
+  await assert.rejects(recordAndQueueApproval({query:async()=>{called=true;}},final,supporting));assert.equal(called,false);
 });

@@ -1,0 +1,21 @@
+{
+  "version": "raad.source-discovery/1",
+  "sourceId": "okaz",
+  "reviewedOn": "2026-10-29",
+  "purpose": "manual source-access verification, not runtime authorization",
+  "indexUrl": "https://www.okaz.com.sa/rss",
+  "indexDataUrl": "https://www.okaz.com.sa/api/pb/sections?widget_id=23551",
+  "feeds": [
+    { "sectionId": 1, "sectionName": "محليات", "url": "https://www.okaz.com.sa/rssFeed/1", "status": "verified-rss-2.0" },
+    { "sectionId": 2, "sectionName": "السياسة", "url": "https://www.okaz.com.sa/rssFeed/2", "status": "advertised-not-fetched" },
+    { "sectionId": 3, "sectionName": "رياضة", "url": "https://www.okaz.com.sa/rssFeed/3", "status": "advertised-not-fetched" },
+    { "sectionId": 8, "sectionName": "ثقافة وفن", "url": "https://www.okaz.com.sa/rssFeed/8", "status": "advertised-not-fetched" },
+    { "sectionId": 194, "sectionName": "تكنولوجيا", "url": "https://www.okaz.com.sa/rssFeed/194", "status": "advertised-not-fetched" }
+  ],
+  "rights": {
+    "publisherRssReaderInstructionsObserved": true,
+    "commercialRepublicationPermissionVerified": false,
+    "imageReusePermissionVerified": false,
+    "runtimeRegistryUnchanged": true
+  }
+}
