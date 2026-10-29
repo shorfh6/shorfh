@@ -122,7 +122,7 @@ input, revision, policy, sources, claims, evidence, references, issues
 
 `validateSourceRegistry` يقبل حالتين مغلقتين فقط: fixture القديمة `{version:"raad.contract/1",ownerApproval:"pending",sources:[]}`، والبيان التحريري المراجع لعكاظ وحده بالقيم والروابط والتاريخ الفعلي في `config/raad/sources.json`. الثاني ownerApproval=editorial-only، approvalScope=editorial-reference-only، approvedBy=owner؛ automatedCollection/articleRepublication/imageReuse=false، rightsStatus=permission-pending؛ discovery rss-index وfeedVerified=false، policy.reviewedOn=2026-10-25. الحقول مطلوبة والإضافات مرفوضة على مستويات السجل/المصدر/discovery/policy، ولا تفتح الحقوق أو feedVerified بتعديل JSON وحده؛ راجع `SOURCES.md`.
 
-`validateRuntime` يبقى dry-run مع 300 ثانية وlivePublishing=false وschedulerInstalled=false. لا يمنح المدقق موافقة حي أو ينفذ جدولة. envelope حاليًا 102 حالة؛ أحدث suite كلي 492 بعد فحوص البوابة وTLS والمعاينة الخاصة، والجولات 486/462/213/222 تاريخية. تفويض CMS اليدوي وإصلاح SITE_URL المحددان منفصلان عن runtime.
+`validateRuntime` يبقى dry-run مع 300 ثانية وlivePublishing=false وschedulerInstalled=false. لا يمنح المدقق موافقة حي أو ينفذ جدولة. envelope حاليًا 102 حالة؛ أحدث suite كلي 512 بعد فحوص طابور المعتمد ومفتاح Vault، والجولات 507/492/486/462/213/222 تاريخية. عامل نشر المعتمد فُعّل بإعداد وجدولة مستقلين وتفويض واختبار موثقين في APPROVED-WORKER-ROLLOUT.md؛ لا يغير عقد ورقة الناشر أو يشغل دورة الاكتشاف والمراجعات.
 
 ## تحقق CLI الفعلي، منفصل عن workflow
 `runtime-smoke.mjs` driver حقيقي opt-in بـ`--execute`، افتراضيه `openai/gpt-6.1-sol`. يبدأ primary raad من `newsWeb` ثم Task واحد باسم الورقة المحدد؛ لا general أو fallback أو retry أو إصلاح لرد الطفل. يطابق نتيجة الأب مع JSON الطفل داخل wrapper Task الجذري، ويتحقق من الغلاف مع expectedTask الموثوق، ثم official CLI export للطفل الاصطناعي الجديد فقط لإثبات parent/task binding وmetadata اسم الوكيل والنموذج وtool parts. تصدير الطفل ليس استدلالًا جديدًا أو سجل تدقيق إنتاجيًا.
@@ -132,7 +132,7 @@ input, revision, policy, sources, claims, evidence, references, issues
 ## القياس والتدقيق والثقة
 - `metrics` في الغلاف unknown/null فقط؛ telemetry المقاس للمنسق منفصل. يمكن لتقرير المراقب وصف قياسات مع مرجعها، لكنها لا تتحول تلقائيًا إلى telemetry موثوق.
 - `auditSummary` يتحقق من النتيجة مع المهمة ثم يعيد ملخصًا مجمدًا في الذاكرة: version، بصمتا taskId/traceId، agent/stage، رقما المراجعة والجولات، inputHash، بصمة policy.version، decision، outcome، failed، وعددا claims/evidence. لا يخزن النصوص ولا يكتب سجلًا دائمًا؛ failed هنا حجب أو رفض/تصعيد وليس تقييمًا شاملًا للجاهزية.
-- events/audit في workflow وdry-run مصفوفات ذاكرة. HANDOFF سجل تطوير في المستودع، لا log إنتاجي append-only. التخزين الذري للقرارات والحالة وoutbox والتفرد وlease/fencing وDLQ والمصالحة الدائمة ما زال تكاملًا مطلوبًا، لا ميزة إنتاجية مكتملة.
+- events/audit في workflow وdry-run مصفوفات ذاكرة. HANDOFF سجل تطوير في المستودع، لا log إنتاجي append-only. منفذ المعتمد الإنتاجي أصبح يملك طابورًا ومعاملات وoutbox وreceipts وlease/fencing وDLQ ومصالحة دائمة؛ مرجعه APPROVED-WORKER-ROLLOUT.md. لا يجعل ذلك سجل المراحل السابقة أو التفرد بين قصص المصادر أو دورة LLM كاملة تكاملًا منجزًا.
 - المحتوى الخارجي بيانات خاملة؛ لا تعليمات أو أدوات أو انتحال أدوار. لا يمنح hash توقيعًا أو هوية ولا تثبت البنية الصحيحة صدق الخبر. لا يُعلن نشر حقيقي أو receipt أو URL منشور بهذا الإصدار المحلي.
 
 ## سجل تطوير محلي منفذ، لا سجل إنتاجي
