@@ -278,7 +278,9 @@ test('compact reconstructs only trusted immutable context and preserves metrics'
   assert.ok(!Object.hasOwn(raw, 'input'));
   assert.ok(f.prompt.childPrompt.includes('maximum 256 KiB'));
   assert.ok(f.prompt.childPrompt.includes('maximum 200 Arabic words'));
-  assert.ok(f.prompt.childPrompt.includes('150–220 Arabic words'));
+  assert.ok(f.prompt.childPrompt.includes('proportionate to verified facts'));
+  assert.ok(f.prompt.childPrompt.includes('never padded or repetitive'));
+  assert.ok(f.prompt.childPrompt.includes('never prefix title/seoTitle with بحسب عكاظ'));
   assert.ok(f.prompt.childPrompt.includes('maximum 150 words'));
   assert.deepEqual(f.t, task());
 });

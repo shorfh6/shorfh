@@ -1,0 +1,24 @@
+{
+  "version": "raad.rss-reader/1",
+  "sourceId": "okaz",
+  "scope": "rss-discovery-notices",
+  "pollIntervalSeconds": 300,
+  "feeds": [
+    "https://www.okaz.com.sa/rssFeed/1",
+    "https://www.okaz.com.sa/rssFeed/2",
+    "https://www.okaz.com.sa/rssFeed/3",
+    "https://www.okaz.com.sa/rssFeed/8",
+    "https://www.okaz.com.sa/rssFeed/194"
+  ],
+  "retainedFields": ["source-url", "title", "publication-date", "discovery-time"],
+  "retainArticleBodies": false,
+  "retainPublisherImages": false,
+  "createCmsArticles": false,
+  "publicationPipelineConnected": false,
+  "scheduler": {
+    "type": "windows-task-scheduler",
+    "taskName": "Shurfa-Okaz-RSS-Discovery-v1",
+    "requiresRunningComputer": true,
+    "requiresLoggedInWindowsUser": true
+  }
+}

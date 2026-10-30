@@ -37,7 +37,8 @@ export async function putImage(name: string, buf: Buffer, contentType: string): 
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${name}`, {
     method: "POST",
     headers: { ...authHeaders(), "content-type": contentType, "x-upsert": "false" },
-    body: new Uint8Array(buf),
+      body: new Uint8Array(buf),
+      signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) throw new Error(`Storage upload failed (${res.status})`);
 }
