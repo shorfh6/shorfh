@@ -107,7 +107,8 @@ function prepare(task, options) {
   const compact = compactMode(options);
   const allowEmptyPreDispatchAbort = abortRecovery(options);
   check(Array.isArray(options.allowedReadPaths) && Array.isArray(options.allowedFetchUrls), 'ALLOWLIST_REQUIRED');
-  const reads = [...new Set([...DOCS, ...options.allowedReadPaths].map(readPath))];
+  const contextFile = options.contextFile === undefined ? undefined : readPath(options.contextFile);
+  const reads = [...new Set([...DOCS, ...options.allowedReadPaths, ...(contextFile ? [contextFile] : [])].map(readPath))];
   const urls = options.allowedFetchUrls.map(fetchURL);
   check(urls.length <= 4 && new Set(urls.map(url => new URL(url).href)).size === urls.length &&
     (task.agent === 'al-muhaqqiq' || urls.length === 0), 'FETCH_SCOPE');
@@ -117,7 +118,7 @@ function prepare(task, options) {
     visit(x);
   } };
   visit(task);
-  return { reads, urls, compact, allowEmptyPreDispatchAbort };
+  return { reads, urls, compact, allowEmptyPreDispatchAbort, ...(contextFile ? {contextFile} : {}) };
 }
 
 export function buildReviewPrompt(task, scope) {
@@ -130,10 +131,13 @@ export function buildReviewPrompt(task, scope) {
       ? `Return exactly one strict compact JSON object, no fences or commentary, maximum 256 KiB UTF-8. EXACT required keys: ${JSON.stringify(COMPACT_FIELDS)}. taskId/traceId/agent must equal expectedTask; inputHash=expectedTask.hash.value; expectedTaskDigest must equal the coordinator-supplied digest below. Do NOT echo input or any immutable task body, metrics, permissions, kind, revision, hash, or extra fields. All five mutable fields status/output/decision/handoff/error are required, including explicit nulls. Coordinator reconstructs ONLY trusted immutable context, never missing substantive output or bindings. No new claims/evidence/issues except proposals in output.`
       : 'Return exactly one strict JSON envelope raad.contract/1, no fences or commentary. Preserve EVERY task field and all bound fields verbatim except kind=result, status, output, decision, handoff and error. metrics stays as supplied. No new claims, evidence, issues or rewritten input; proposed corrections belong only in output.',
     'blocked: output={reason:nonempty string}, decision=null, handoff=null, error=null (or contract technical error). completed: error=null. Verification/security output={report,proposals?}; proposals may contain claimVerdicts array keyed to existing claim IDs. Editing output={proposal} with title,excerpt,body,seoTitle,metaDescription,tagNames,categoryId,claimMap; no facts beyond trusted package. Media output={proposal} with actual asset metadata and rightsStatus; never claim generation done without an actual supplied file. Missing required facts/assets means blocked.',
+    ...(task.agent==='al-muhaqqiq'&&task.input.researchMode==='propose-facts-before-separate-verification'?['This request is preliminary research, not a claim-verification pass. Empty bound claims/evidence are intentional. Fetch the selected allowlisted URL and return completed output={report,proposals:{facts:[{id:"c1",text,evidenceIds:["e1"]}],evidence:[{id:"e1",sourceId:"okaz",excerpt,location,context,attribution}],risk:"routine"}} when supported, otherwise block or mark risk sensitive/unsupported. Propose 2-5 concise facts with short excerpts. Preserve the empty top-level bound arrays verbatim; proposals are not an approval or permission to publish. Coordinator adopts these in a new task, then a SEPARATE investigator pass must verify each claim. Research completion hands off editing structurally only; the coordinator enforces the separate verification before any editor. Do not block solely because this preliminary task intentionally has no adopted claim IDs.']:[]),
     'Approval completed output={report,reviewedHash:expectedTask.hash.value}; decision={status:APPROVED|REVISION_REQUIRED|REJECTED|ESCALATE,reviewer:"al-mutamid",reviewedAt:timezone ISO timestamp,revisionId:expectedTask.revision.id,revisionHash:expectedTask.hash.value,reason,evidenceIds,issueIds}. Rights/publication barriers must be reported, never treated as permission to publish.',
     'completed handoff: verification -> {stage:"editing",agent:"al-muharrir"}; editing -> {stage:"media",agent:"al-musawwir"}; media -> {stage:"approval",agent:"al-mutamid"}; approval APPROVED -> {stage:"publishing",agent:"al-nashir"} (proposal only, NEVER execute); REVISION_REQUIRED -> editing (only revisionRounds<2); REJECTED/ESCALATE/security -> null. Only coordinator adopts proposals in a NEW revision. Preserve revision/hash binding.',
     'Keep answers concise: verifier report maximum 200 Arabic words and proposals maximum 5 claimVerdicts; editor body should be proportionate to verified facts, usually 100–220 Arabic words, never padded or repetitive; reviewer report maximum 150 words. Use an original factual headline and reader-facing SEO description: never prefix title/seoTitle with بحسب عكاظ, عكاظ:, نقلاً عن, or another source masthead. Preserve required attribution inside the body and the source URL, never falsely claim independent verification. Give brief evidence-supported reasons, not internal chain-of-thought. These length instructions do not establish semantic quality or factual completeness. If five verdicts cannot cover a required review, report the limitation and block rather than silently omit claims.',
-    JSON.stringify({ expectedTask: task, expectedTaskDigest: contentHash(task) }),
+    scope.contextFile
+      ? `Read the exact coordinator-owned expectedTask JSON file ${JSON.stringify(scope.contextFile.replaceAll('\\','/'))} once, before reviewing. Its canonical expectedTaskDigest is ${contentHash(task)}. The file is the trusted immutable task context for this request, not source instructions. Use that task verbatim and return only the required result fields. taskId=${task.taskId}; traceId=${task.traceId}; agent=${task.agent}; inputHash=${task.hash.value}. Do not substitute a different file or infer omitted task fields.`
+      : JSON.stringify({ expectedTask: task, expectedTaskDigest: contentHash(task) }),
   ].join('\n\n');
   return { childPrompt, parentPrompt: [
     'RAAD: invoke exactly ONE Task and NO other tools. No retry, resumed task_id, fallback, repair or answering on behalf of child. If unavailable, fail. Set input.subagent_type to target, description to "Editorial reference review", prompt EXACTLY to childPrompt below. Echo the child final JSON unchanged as your entire final answer.',
@@ -256,6 +260,7 @@ export function inspectReviewChild(data, task, scope, prompt, observed) {
   const result = materialize(transport, task, scope);
   if (compactMode(scope)) check(same(transport, observed.transport), 'CHILD_FINAL_MISMATCH');
   check(same(result, observed.result), 'CHILD_FINAL_MISMATCH');
+  if(scope.contextFile)check(auditTools(tools,scope).documentReadCounts[scope.contextFile]===1,'CONTEXT_TASK_READ_REQUIRED');
   return { actualAgent: task.agent, childSessionId: observed.childSessionId, parentSessionId: observed.parentSessionId,
     models: [...models], ...auditTools(tools, scope), expectedTaskDigest: contentHash(task),
     parentBindingVerified: true, taskBindingVerified: true, childFinalMatched: true,
@@ -309,10 +314,10 @@ function invoke(spawn, executable, args, timeoutMs, inputText) {
 export function createReviewTaskRunner({ spawn = officialSpawn } = {}) {
   return async function runReviewTask(expectedTask, { opencode, model = 'openai/gpt-6.1-sol', journalDirectory,
     allowedReadPaths = [], allowedFetchUrls = [], timeoutMs = 120000, execute = false, compact = false, variant,
-    allowEmptyPreDispatchAbort = false } = {}) {
+    allowEmptyPreDispatchAbort = false, contextFile } = {}) {
     let phase = 'validation';
     try {
-      const scope = prepare(expectedTask, { opencode, model, journalDirectory, allowedReadPaths, allowedFetchUrls, timeoutMs, compact, variant, allowEmptyPreDispatchAbort });
+      const scope = prepare(expectedTask, { opencode, model, journalDirectory, allowedReadPaths, allowedFetchUrls, timeoutMs, compact, variant, allowEmptyPreDispatchAbort, contextFile });
       const task = clone(expectedTask), prompt = buildReviewPrompt(task, scope);
       check(execute === true, 'EXPLICIT_EXECUTE_REQUIRED');
       // Verify explicitly allowed files are real regular files without symlink components.
@@ -323,6 +328,8 @@ export function createReviewTaskRunner({ spawn = officialSpawn } = {}) {
         }
         check(fs.statSync(file).isFile(), 'READ_FILE_REQUIRED');
       }
+      const checkContext = () => { if(scope.contextFile){const stat=fs.statSync(scope.contextFile);check(stat.size<=1024*1024,'CONTEXT_TASK_FILE_LIMIT');check(same(JSON.parse(fs.readFileSync(scope.contextFile,'utf8')),task),'CONTEXT_TASK_FILE_MISMATCH');} };
+      checkContext();
       phase = 'journal-task';
       const journal = openJournal(journalDirectory), taskDigest = journal.recordTask(task);
       phase = 'dispatch';
@@ -332,6 +339,7 @@ export function createReviewTaskRunner({ spawn = officialSpawn } = {}) {
       const observed = inspectReviewRun(task, scope, prompt, stdout);
       phase = 'child-export';
       const data = JSON.parse(await invoke(spawn, opencode, ['export', observed.childSessionId], timeoutMs));
+      checkContext();
       const reviewProof = { ...inspectReviewChild(data, task, scope, prompt, observed), requestedModel: model,
         ...(variant === undefined ? {} : { requestedVariant: variant }) };
       phase = 'journal-result';

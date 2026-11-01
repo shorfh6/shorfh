@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTask,contentHash } from './envelope.mjs';
+import { createTask,contentHash,reviewPackageHash } from './envelope.mjs';
 import { validateApprovalPacket,recordApproval,recordAndQueueApproval } from './import-publication-approval.mjs';
 
 const cp=v=>structuredClone(v),hex='a'.repeat(64);
@@ -51,6 +51,10 @@ test('reviewed database snapshot must match title body image author category tag
 test('media approval must cover the actual candidate image hash',()=>{
   const {final,supporting}=fixture();supporting[2].result.output.proposal.mediaManifest[0].hash.value='b'.repeat(64);
   assert.throws(()=>validateApprovalPacket(final,supporting));
+});
+test('explicit sha256 and rights aliases preserve exact binding and reject conflicting declarations',()=>{
+ const f=fixture(),m=f.supporting[2];m.result.output.proposal.mediaManifest=[{sha256:hex,rights:'confirmed'}];f.final.task.input.priorReviews.find(r=>r.agent==='al-musawwir').output=cp(m.result.output);f.final.task.hash.value=reviewPackageHash(f.final.task);f.final.result={...cp(f.final.task),kind:'result',status:'completed',output:{report:'SYNTHETIC',reviewedHash:f.final.task.hash.value},decision:{...f.final.result.decision,revisionHash:f.final.task.hash.value},handoff:{stage:'publishing',agent:'al-nashir'}};f.final.proof.expectedTaskDigest=contentHash(f.final.task);assert.equal(validateApprovalPacket(f.final,f.supporting).proof.media_sha256,hex);
+ m.result.output.proposal.mediaManifest[0].hash={algorithm:'sha256',value:'b'.repeat(64)};assert.throws(()=>validateApprovalPacket(f.final,f.supporting));
 });
 test('old final reviews without a bound database snapshot are not retroactive approvals',()=>{
   const {final,supporting}=fixture();delete final.task.input.publicationSnapshot;assert.throws(()=>validateApprovalPacket(final,supporting));

@@ -1,6 +1,31 @@
 # Persistent newsroom coordinator — local implementation, not deployed
 
-## Latest verification and actual service blocker
+## Live verification update — 2026-11-01
+
+The media endpoint is now deployed in hosted staging. Twelve real hosted-adapter checks passed. A genuine RSS story (`/local/na/2273453`, staging article 67) completed research, separate factual verification, original concise editing, original PNG upload/readback, authentic media review and preflight. The final approval request ended **HTTP429 — The usage limit has been reached**, before dispatching a child. It did not produce an approval, queue job or publication. Check `.raad-local/newsroom-staging/live-1793554277166/latest-live-inspection.json` and the exact root session `ses_e67b2565cffel5jdmiWvaczby1` before authorized recovery. Resume the saved approval stage only after proving provider availability; do not create another draft or fabricate a result. Staging is paused with no cron, and both permanent newsroom configurations remain disabled.
+
+After these live-integration fixes, the full suite passed **577/577** and TypeScript passed. Actual live findings covered explicit preliminary research, nonfactual source/caption map entries, recorded original-card adaptation/attribution scope, equivalent unambiguous SHA-256/rights manifest fields, and guarded recovery of a completed child after parent timeout. No failed call was counted as an approval or publication. No additional model probes were made after the final quota error.
+
+Large review tasks can use opt-in `cli.useContextFile=true`. The exact task is pretty-printed to a scoped ignored JSON file; pre/post canonical equality and an actual allowed child Read are required. Line/total limits prevent truncated tool reads. This avoids parent-model copying of full article packages into Task arguments while retaining the real named child and exact expected-task binding. Task content never grants tool permissions. The task/result journal remains authoritative; the context file is a transport representation only.
+
+Production article54's corrected original headline is published and verified after a new genuine approval; its previous quota/draft blocker below is historical. The full unattended newsroom is still awaiting the live final approval/publication test and activation.
+
+## Latest hosted staging adapter check — 2026-10-30 13:41 UTC
+
+The deployed staging media endpoint and actual `createNewsroomAdapters` reserve/preparation/preflight path passed **12 hosted checks**, with no model calls, approvals or publication. Exact target: `https://shorfh-raad-staging.onrender.com`, Supabase `eotfvclpiflwikvqzhqt`. The owner reported provider service restored; this independently scoped check deliberately made **zero LLM calls** and did not touch the main agent's production/article-54 work.
+
+The adapter created synthetic staging draft **65**, recovered the same owned reservation, and rejected a canonical source URL tracking variant from a second unowned runtime directory. Actual category schema includes `sort_order`; selected categories are marked `SYNTHETIC`. Preparation preserved exact title/excerpt/body, prescribed SEO, canonical source URL, null author, false featured/exclusive flags and **two tags**. The actual generic JSON-input PowerShell generator produced a **1200×675, 22347-byte PNG** visibly labeled **SYNTHETIC NOT REAL NEWS**. Hosted POST returned **200**; preparation GET and preflight GET both returned **200** with the matching actual bytes. Draft readback used only worker-authenticated `/api/raad/media`, not CMS-protected `/uploads/*`.
+
+- Image: `raad-65-7c0509e36f7a226679cfb4e5.png`
+- Image SHA-256: `7c0509e36f7a226679cfb4e5296e1a1f6435ddaef28a66532f7f23b1ec6c2be0`
+- Snapshot SHA-256: `ffd15178b29243ab53cb1775eb8133ee90ad8cbfc7a5317433e9c24f26f2bf54`
+- Sanitized receipt: `.raad-local/newsroom-staging/hosted-adapter-verification.json`
+- Scoped runner: `.raad-local/newsroom-staging/verify-hosted-adapters.mjs`
+- Local card: `docs/raad/media/newsroom-65-61e4a3fb3934f0fd.png`
+
+The test temporarily set staging `schedule_config.enabled=true` for stored-worker media authentication **without creating or activating cron**. Its `finally` called `pause_schedule()` and verified final **enabled=false**, **cron_job_id=null**, **0 cron jobs**, **0 active publication jobs**. Article 65 remains **draft**, has **no publication timestamp, no approval and no publication job**. Local runtime settings remained disabled. Synthetic draft/card artifacts are retained as test evidence; no source URL was fetched and no real-news verification is claimed. No adapter code fix was needed.
+
+## Earlier verification and service-blocker record
 
 The full local suite now passes **570/570**, TypeScript passes, and isolated production builds pass. The protected original-media POST/GET integration passed **32 staging checks** against real independent staging DB/storage. This endpoint and the generic coordinator remain local changes awaiting the staged release and genuine inference cycle; do not describe them as deployed.
 
@@ -112,7 +137,7 @@ The permanent connection helper uses the project's installed `pg` package and sh
 
 The staging settings' `previewCredentialFile` now points to permanent `staging-preview.dpapi`. Both settings' `opencode` paths now point to permanent **`.raad-local/newsroom-runtime/bin/opencode.exe`**. This is the exact official baseline executable, copied with its package metadata (`bin/package.json`), SHA-256 `cab0c9a8480f71fbb7cbc88ad91057712ecb500ab41fb9c01dd586cb9d8ea375`, version **1.19.3**. The source baseline package contained only that executable and package metadata; no additional package sidecars were present. Running the copied executable with `--version` succeeded without inference. Node.js, PowerShell, project dependencies and the existing authorized OpenCode user configuration remain ordinary host prerequisites; no `.env`, browser state or auth store was copied. These factories have not opened a database or run inference during this persistence work.
 
-**Current hard block:** the owner-reported 429/quota failure prevents genuine LLM review. Do not run the following live command while that block remains. After quota is restored and the main agent finishes deployment/auth readiness and sets **only staging** `runtime.json` to `enabled:true`, run from `C:/Users/HDsupport1/Desktop/newsWeb`:
+The earlier 429/quota block was reported cleared by the owner. This hosted adapter check did not invoke a model; a genuine review cycle is separate work for the main agent. After that readiness work and explicit staging configuration, run from `C:/Users/HDsupport1/Desktop/newsWeb`:
 
 ```text
 node scripts/raad/watch-okaz-rss.mjs --directory "C:/Users/HDsupport1/Desktop/newsWeb/.raad-local/okaz-rss-reader" --execute-reader
@@ -177,9 +202,8 @@ The Windows card-generation test actually executed the existing generic PowerShe
 
 Remaining real blockers:
 
-- Owner-reported 429/quota exhaustion is a hard blocker for genuine LLM reviews. No live review or quota retry was attempted for these fixes.
-- The trusted adapters and protected connection wiring are now implemented; their actual database permissions, current categories and staged transaction behavior still need a live staging run.
-- Deploy/validate the main agent's worker-authenticated media GET endpoint and the actual original-card upload/hash/readback integration. The adapter now uses GET for drafts; live behavior is not established by fake HTTP tests.
+- Provider restoration was reported by the owner; no live review or quota retry was attempted within this independent adapter task.
+- Actual staging database permissions/categories/transactions and hosted worker-authenticated POST/GET original-card readback passed the scoped 12-check run above. This establishes the adapter path, not the complete inference/publication cycle.
 - Run a genuine staged source→research→separate verification→editing→media→approval→queue cycle, with actual CLI proofs and failure cases. Confirm source-access scope and escalation handling without treating RSS approval as permission to copy bodies/images.
 - Validate the implemented live review clock and current worker/approval expiry settings in a real CLI run, plus process termination/unknown outcome reconciliation, monitoring and archival/recovery procedures. The media endpoint requires enabled worker configuration and the in-memory configured key to match the deployed server; no key or schedule was changed here.
 - Establish the authorized single coordinator deployment/schedule, protected configuration, database source uniqueness semantics and durable host availability. Existing RSS and approved-publication schedules alone do not install this coordinator.

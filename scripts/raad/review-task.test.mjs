@@ -99,6 +99,24 @@ test('injection remains inside exact trusted task data and strict role instructi
   assert.equal(declared.expectedTaskDigest, contentHash(f.t));
   assert.equal(f.child().actualAgent, 'al-muhaqqiq');
 });
+test('context-file transport keeps the exact task binding without making the parent copy article data',()=>{
+  const contextFile=path.win32.resolve(PROJECT_DIR,'docs/raad/evidence/raad-review-test.json').toLowerCase(),s={...scope,compact:true,contextFile,reads:[...scope.reads,contextFile]},f=fixture(task(),s);
+  assert.ok(!f.prompt.childPrompt.includes(f.t.input.untrustedNote));assert.ok(f.prompt.childPrompt.includes(contentHash(f.t)));assert.ok(f.prompt.childPrompt.includes('Read the exact coordinator-owned expectedTask JSON file'));
+  assert.throws(f.child,{message:'CONTEXT_TASK_READ_REQUIRED'});
+  f.data.messages[1].parts.unshift(tool('read',{filePath:contextFile}));assert.equal(f.child().documentReadCounts[contextFile],1);
+});
+test('context-file transport does not relax exact child output or actual tool scope',()=>{
+  const contextFile=path.win32.resolve(PROJECT_DIR,'docs/raad/evidence/raad-review-test.json').toLowerCase(),s={...scope,compact:true,contextFile,reads:[...scope.reads,contextFile]},f=fixture(task(),s);
+  f.data.messages[1].parts.unshift(tool('read',{filePath:contextFile}));f.data.messages[1].parts.push(tool('read',{filePath:contextFile.replace('test','other')}));assert.throws(f.child,{message:'CHILD_FORBIDDEN_READ'});
+});
+test('preliminary research explicitly proposes facts without treating empty adopted claims as completed verification',()=>{
+ const t=task();t.input.researchMode='propose-facts-before-separate-verification';t.hash.value=reviewPackageHash(t);const p=buildReviewPrompt(t,scope);assert.ok(p.childPrompt.includes('Empty bound claims/evidence are intentional'));assert.ok(p.childPrompt.includes('SEPARATE investigator pass'));assert.ok(p.childPrompt.includes('Preserve the empty top-level bound arrays verbatim'));
+ const ordinary=buildReviewPrompt(task(),scope);assert.ok(!ordinary.childPrompt.includes('Empty bound claims/evidence are intentional'));
+});
+test('mismatched context file is rejected before dispatch',async()=>{
+  const relative=`docs/raad/evidence/raad-review-offline-${process.pid}.json`,file=path.join(PROJECT_DIR,relative);assert.equal(fs.existsSync(file),false);fs.writeFileSync(file,JSON.stringify({...task(),taskId:'wrong-task'}),{flag:'wx'});let calls=0;
+  try{await assert.rejects(createReviewTaskRunner({spawn(){calls++;throw Error('unexpected');}})(task(),{...options,execute:true,contextFile:relative}),{code:'CONTEXT_TASK_FILE_MISMATCH'});assert.equal(calls,0);}finally{fs.unlinkSync(file);}
+});
 for (const wrapper of [s => s, s => `<task id="ses_child" state="completed"><task_result>${s}</task_result></task>`,
   s => `task_id: ses_child\n<task_result>${s}</task_result>`, s => `<task_result>${s}</task_result>`]) {
   test('accept known official Task output wrapper', () => assert.deepEqual(unwrapTaskResult(wrapper('{"ok":true}')), { ok: true }));

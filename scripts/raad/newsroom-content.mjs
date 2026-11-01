@@ -26,7 +26,8 @@ export function adoptEditing(result,categories){
   check(!/^(?:بحسب|وفق(?:ًا|ا)?(?:\s+لما)?|نقل[ًاا]\s+عن)\s+عكاظ|^عكاظ\s*[:：-]/u.test(p.title.trim()),'NEWSROOM_ORIGINAL_HEADLINE_REQUIRED');
   check(Array.isArray(p.tagNames)&&p.tagNames.length<=6&&p.tagNames.every(t=>typeof t==='string'&&t.trim()&&t.length<=40)&&new Set(p.tagNames).size===p.tagNames.length,'NEWSROOM_TAGS');
   check(Array.isArray(p.claimMap)&&p.claimMap.length>0,'NEWSROOM_CLAIM_MAP');
-  return{title:p.title.trim(),excerpt:p.excerpt.trim(),body:p.body.trim(),seoTitle:p.title.trim(),metaDescription:p.excerpt.trim(),categoryId:p.categoryId,tagNames:p.tagNames,claimMap:p.claimMap};
+  const claimMap=p.claimMap.filter(row=>!(Array.isArray(row?.claimIds)&&row.claimIds.length===0&&Array.isArray(row.evidenceIds)&&row.evidenceIds.length===0&&typeof row.reference==='string'&&(/^input\.editorialEvidence\.sourceUrls\.okaz$/.test(row.reference)||row.reference.startsWith('input.editorialContext.originalIllustrationCaption'))));
+  return{title:p.title.trim(),excerpt:p.excerpt.trim(),body:p.body.trim(),seoTitle:p.title.trim(),metaDescription:p.excerpt.trim(),categoryId:p.categoryId,tagNames:p.tagNames,claimMap};
 }
 // Structural coverage only; authentic editing/final reviews still assess whether text supports facts.
 export function assertEditorialClaimMap(claimMap, facts){

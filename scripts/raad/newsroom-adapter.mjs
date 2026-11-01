@@ -133,7 +133,7 @@ export function createNewsroomAdapters({ mode, site, projectRef, projectDirector
   }
   async function upload(articleId, data) {
     return withWorkerKey(async secret => {
-      const response = await fetchImpl(site + '/api/raad/media', { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(30000),
+      const response = await fetchImpl(site + '/api/raad/media', { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(60000),
         headers: { ...await headers(), 'content-type': 'image/png', 'x-raad-worker-key': secret, 'x-raad-article-id': String(articleId) }, body: data });
       return JSON.parse((await boundedResponse(response, 8192)).toString('utf8'));
     });
@@ -143,7 +143,7 @@ export function createNewsroomAdapters({ mode, site, projectRef, projectDirector
     check(match && Number.isSafeInteger(articleId) && articleId > 0 && articleId <= 2147483647 && Number(match[1]) === articleId, 'NEWSROOM_ADAPTER_IMAGE_NAME');
     return withWorkerKey(async secret => {
       // Draft uploads are CMS-protected. Read only through the authenticated worker endpoint.
-      const response = await fetchImpl(site + '/api/raad/media', { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(30000),
+      const response = await fetchImpl(site + '/api/raad/media', { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(60000),
         headers: { ...await headers(), 'x-raad-worker-key': secret, 'x-raad-article-id': String(articleId) } });
       check(response.headers.get('content-type')?.split(';')[0] === 'image/png', 'NEWSROOM_ADAPTER_IMAGE_TYPE');
       const data = await boundedResponse(response, 262144);
@@ -200,7 +200,9 @@ export function createNewsroomAdapters({ mode, site, projectRef, projectDirector
         generator: 'scripts/raad/create-news-card.ps1', generatorSha256: sha(fs.readFileSync(generator)),
         inputTitle: edited.title, inputSha256: sha(fs.readFileSync(inputFile)), localPath: path.relative(projectDirectory, outputFile).split(path.sep).join('/'),
         sha256: card.sha256, bytes: data.length, width: 1200, height: 675, rightsStatus: 'confirmed', owner: 'شُرفة',
-        useScope: 'Commissioned original illustration for this SHURFA article, website metadata and social preview', alt: { text: ORIGINAL_CAPTION }, generatedAt: now() };
+        useScope: 'Commissioned original illustration for this SHURFA article, website metadata and social preview',
+        rightsDeclaration:{recordedAt:now(),authority:'Project coordinator fulfilling the owner commission to create original news illustrations for Shurfa',basis:'Original layout, geometric shapes and text rendered with an installed font; no third-party photo, logo or template incorporated.',permittedUses:['Publish and reproduce on shurfh.com and project-owned preview/social channels','Adapt, resize and reformat the original card while retaining truthful labels and illustrative identification'],attribution:'Original illustration by Shurfa; retain the bound caption identifying it as illustrative, not an event photograph.',thirdPartyPublisherRightsGranted:false},
+        alt: { text: ORIGINAL_CAPTION }, generatedAt: now() };
       const proofFile = path.join(runtimeDirectory, scope + '-provenance.json'); saveJSON(proofFile, originalMediaProof);
       await connection('web', client => locked(client, url, async c => {
         await verifyOwnedDraft(c, owner);

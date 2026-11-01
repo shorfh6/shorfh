@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import{adoptEditing,assertEditorialClaimMap}from'./newsroom-content.mjs';
+test('nonfactual source/caption footer references do not introduce empty factual claim IDs or weaken factual coverage',()=>{
+ const facts={facts:[{id:'c1',evidenceIds:['e1']}],evidence:[{id:'e1'}]},proposal={title:'عنوان خبري أصلي واضح',excerpt:'وصف خبري مباشر.',body:'نص الخبر الأصلي.',seoTitle:'عنوان خبري أصلي واضح',metaDescription:'وصف خبري مباشر.',categoryId:1,tagNames:[],claimMap:[{claimIds:['c1'],evidenceIds:['e1']},{claimIds:[],evidenceIds:[],reference:'input.editorialEvidence.sourceUrls.okaz'},{claimIds:[],evidenceIds:[],reference:'input.editorialContext.originalIllustrationCaption'}]};
+ const edited=adoptEditing({status:'completed',output:{proposal}},[{id:1}]);assert.equal(edited.claimMap.length,1);assert.equal(assertEditorialClaimMap(edited.claimMap,facts),true);proposal.claimMap=[{claimIds:[],evidenceIds:[],reference:'untrusted arbitrary claim'}];assert.throws(()=>assertEditorialClaimMap(adoptEditing({status:'completed',output:{proposal}},[{id:1}]).claimMap,facts));
+});

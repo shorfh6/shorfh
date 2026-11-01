@@ -4,9 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { contentHash } from './envelope.mjs';
+import { contentHash, createTask } from './envelope.mjs';
 import { openNewsroomStore } from './newsroom-store.mjs';
-import { createNewsroomCoordinator } from './newsroom-coordinator.mjs';
+import { createNewsroomCoordinator, writeReviewContext } from './newsroom-coordinator.mjs';
 import { main as runMain } from './newsroom-run.mjs';
 import { assertEditorialClaimMap } from './newsroom-content.mjs';
 
@@ -148,7 +148,22 @@ test('review revision rounds are durable and bounded at two', async t => {
   let result;
   for (let i = 0; i < 18; i++) result = await f.tick();
   assert.equal(result.state, 'escalated'); assert.equal(f.state().rounds, 2);
+  assert.deepEqual(Object.keys(f.state().revisionRequest).sort(), ['decision','report','resultDigest']);
+  assert.match(f.state().revisionRequest.resultDigest, /^[a-f0-9]{64}$/);
   assert.equal(f.sql.length, 0);
+});
+
+test('trusted task context is pretty, bounded, exclusive/idempotent and refuses altered files', async t => {
+  const f = fixture(t); await f.tick(); await f.tick(); const task = f.calls[0];
+  const relative = writeReviewContext(task, f.directory), file = path.join(f.directory, relative);
+  assert.match(relative, /^docs\/raad\/evidence\/raad-review-[a-f0-9]{64}\.json$/);
+  const bytes = fs.readFileSync(file, 'utf8'); assert.equal(bytes, JSON.stringify(task, null, 2) + '\n');
+  assert.equal(writeReviewContext(task, f.directory), relative);
+  assert.ok(bytes.trimEnd().split('\n').every(line => line.length < 1900));
+  fs.writeFileSync(file, '{}'); assert.throws(() => writeReviewContext(task, f.directory), /NEWSROOM_CONTEXT_CONFLICT/);
+  const options = Object.fromEntries(['taskId','traceId','agent','revision','policy','sources','claims','evidence','references','issues'].map(key=>[key,task[key]]));
+  const long = createTask({ ...options, input: { ...task.input, tooLong: 'x'.repeat(1900) } });
+  assert.throws(() => writeReviewContext(long, f.directory), /NEWSROOM_CONTEXT_READ_LIMIT/);
 });
 
 test('commit outcome unknown never triggers a blind import retry', async t => {

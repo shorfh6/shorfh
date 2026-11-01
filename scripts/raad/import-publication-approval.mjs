@@ -47,7 +47,11 @@ export function validateApprovalPacket(packet, supporting) {
   check(Object.keys(snapshot).sort().join(',')===['version','id','title','excerpt','body','image','category','author','tags','sourceUrl','featured','exclusive','createdAt'].sort().join(','),'SNAPSHOT_FIELDS');
   for (const field of ['title','excerpt','body']) check(typeof c[field]==='string' && c[field].trim() && normal(snapshot[field])===normal(c[field]),'CANDIDATE_SNAPSHOT_MISMATCH');
   check(snapshot.image===c.imageName && /^[\w-]+\.(png|jpg|jpeg|webp)$/i.test(snapshot.image) && digest(c.imageLocalSha256),'MEDIA_SNAPSHOT_MISMATCH');
-  check(Array.isArray(media.result.output.proposal.mediaManifest) && media.result.output.proposal.mediaManifest.some(a=>a.hash?.algorithm==='sha256'&&a.hash.value===c.imageLocalSha256&&a.rightsStatus==='confirmed'),'MEDIA_SNAPSHOT_MISMATCH');
+  check(Array.isArray(media.result.output.proposal.mediaManifest) && media.result.output.proposal.mediaManifest.some(a=>{
+    const hash=a.hash===undefined?a.sha256:a.hash?.algorithm==='sha256'?a.hash.value:null;
+    const rights=a.rightsStatus===undefined?a.rights:a.rightsStatus;
+    return hash===c.imageLocalSha256&&rights==='confirmed'&&(a.sha256===undefined||a.sha256===hash)&&(a.rights===undefined||a.rights===rights);
+  }),'MEDIA_SNAPSHOT_MISMATCH');
   check(snapshot.category?.id===c.categoryId && snapshot.category?.name===c.categoryName &&
     (snapshot.author?.name??null)===(c.authorDisplayName??null) && snapshot.featured===c.featured && snapshot.exclusive===c.exclusive,'CANDIDATE_SNAPSHOT_MISMATCH');
   check(Array.isArray(snapshot.tags) && Array.isArray(c.tagNames) &&
