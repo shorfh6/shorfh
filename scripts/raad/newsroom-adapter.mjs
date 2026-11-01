@@ -255,7 +255,7 @@ export function createNewsroomAdapters({ mode, site, projectRef, projectDirector
       check(checked.sha256 === owner.media.sha256, 'NEWSROOM_ADAPTER_REMOTE_MEDIA_CHANGED');
       const clockReadPath = `docs/raad/evidence/newsroom-${articleId}-clock.json`;
       return { sourceUnique: true, snapshotHash: contentHash(actual), imageSha256: checked.sha256, checkedAt: now(), projectRef,
-        reviewClock: { clockReadPath, source: 'Live coordinator system UTC refreshed once per second during final review', instruction: 'Read clockReadPath immediately before recording decision.reviewedAt; use observedUtc. Do not use the earlier static request timestamp.' } };
+        reviewClock: { clockReadPath, source: 'Live coordinator system UTC refreshed once per second during final review', instruction: 'Read clockReadPath immediately before recording decision.reviewedAt; use the measured observedUtc. observedRiyadh and observedUtc represent the SAME instant with +03:00 versus Z. Near midnight the Saudi/environment calendar date is legitimately the next day relative to UTC; a date-only environment header is not a contradictory independent clock. Evaluate freshness by actual instants, not the date string alone. Do not invent or advance a timestamp to match a date-only environment header.' } };
     },
 
     async withReviewClock(task, callback) {
@@ -263,7 +263,7 @@ export function createNewsroomAdapters({ mode, site, projectRef, projectDirector
       const clockReadPath = `docs/raad/evidence/newsroom-${task.input.articleId}-clock.json`;
       check(task.input.reviewClock?.clockReadPath === clockReadPath, 'NEWSROOM_ADAPTER_LIVE_CLOCK_REQUIRED');
       const file = path.join(projectDirectory, clockReadPath);
-      const update = () => saveJSON(file, { observedUtc: now(), source: 'Measured coordinator system UTC' });
+      const update = () => {const utc=now();saveJSON(file,{observedUtc:utc,observedRiyadh:new Date(Date.parse(utc)+10800000).toISOString().replace('Z','+03:00'),timeZone:'Asia/Riyadh (UTC+03:00)',source:'Measured coordinator system UTC; both timestamps are the same measured instant, not an inferred date'});};
       // Claim only our own new clock file; never overwrite/delete a pre-existing file.
       const fd = fs.openSync(file, 'wx', 0o600); fs.closeSync(fd);
       let clockError, timer;

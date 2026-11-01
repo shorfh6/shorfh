@@ -26,7 +26,7 @@ try{
  $g.FillRectangle($gold,1100,180,10,270)
  $g.DrawString('شُرفة  |  متابعة إخبارية',$label,$green,[Drawing.RectangleF]::new(70,45,1040,75),$rtl)
  $g.DrawString($data.title,$title,$green,[Drawing.RectangleF]::new(85,170,970,285),$rtl)
- $g.DrawString('المصدر: عكاظ  —  تغطية أصلية من شُرفة',$small,$muted,[Drawing.RectangleF]::new(70,495,1040,65),$rtl)
+ $g.DrawString('المصدر: عكاظ  —  تصميم توضيحي من شُرفة',$small,$muted,[Drawing.RectangleF]::new(70,495,1040,65),$rtl)
  $g.FillRectangle($green,0,595,1200,80)
  $g.DrawString('بطاقة توضيحية أصلية — ليست صورة للحدث',$small,$cream,[Drawing.RectangleF]::new(70,600,1040,65),$rtl)
  $bitmap.Save($OutputFile,[Drawing.Imaging.ImageFormat]::Png)
