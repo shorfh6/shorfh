@@ -14,7 +14,7 @@
   "retainArticleBodies": false,
   "retainPublisherImages": false,
   "createCmsArticles": false,
-  "publicationPipelineConnected": false,
+  "publicationPipelineConnected": true,
   "scheduler": {
     "type": "windows-task-scheduler",
     "taskName": "Shurfa-Okaz-RSS-Discovery-v1",

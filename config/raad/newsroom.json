@@ -1,0 +1,22 @@
+{
+  "version": "raad.newsroom/1",
+  "site": "https://www.shurfh.com",
+  "source": "okaz-rss",
+  "enabled": true,
+  "pollIntervalSeconds": 300,
+  "scheduler": {
+    "type": "windows-task-scheduler",
+    "taskName": "Shurfa-Reviewed-Newsroom-v1",
+    "overlap": "IgnoreNew",
+    "requiresRunningComputer": true,
+    "requiresLoggedInWindowsUser": true
+  },
+  "path": ["rss", "research", "verification", "original-editing-seo", "original-illustration", "media-review", "final-approval", "durable-publication-queue", "publication-readback"],
+  "perRunStoryLimit": 1,
+  "headlineSourcePrefixes": false,
+  "copyPublisherPhotos": false,
+  "publishWithoutMatchingApproval": false,
+  "unknownOutcomePolicy": "pause-and-reconcile",
+  "verifiedProductionArticle": 55,
+  "productionVerifiedAt": "2026-11-02T10:14:10.121Z"
+}

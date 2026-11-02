@@ -1,0 +1,3 @@
+# Runtime-generated original cards are bound by hashes/provenance in the private
+# newsroom journal and uploaded to storage; avoid staging every live/test card.
+newsroom-*.png
