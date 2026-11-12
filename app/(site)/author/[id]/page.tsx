@@ -13,7 +13,7 @@ const PER_PAGE = 12;
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const page = Math.max(1, Number((await searchParams).page) || 1);
   const author = await getAuthor(Number((await params).id));
-  if (!author) return {};
+  if (!author || author.status !== "active") notFound();
   return {
     title: author.name,
     description: author.bio || `مقالات وأخبار بقلم ${author.name} في شُرفة.`,

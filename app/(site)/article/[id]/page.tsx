@@ -24,7 +24,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const a = await getPublishedArticle(Number((await params).id));
-  if (!a) return {};
+  if (!a) notFound();
   return {
     title: a.title,
     description: a.excerpt,

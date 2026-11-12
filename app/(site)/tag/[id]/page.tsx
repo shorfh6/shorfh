@@ -12,7 +12,8 @@ const PER_PAGE = 12;
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const page = Math.max(1, Number((await searchParams).page) || 1);
   const t = await getTag(Number((await params).id));
-  return t ? { title: `#${t.name}`, alternates: { canonical: `/tag/${t.id}${page > 1 ? `?page=${page}` : ""}` } } : {};
+  if (!t) notFound();
+  return { title: `#${t.name}`, alternates: { canonical: `/tag/${t.id}${page > 1 ? `?page=${page}` : ""}` } };
 }
 
 export default async function TagPage({ params, searchParams }: Props) {

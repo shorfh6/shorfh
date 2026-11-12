@@ -12,9 +12,8 @@ export const generateStaticParams = () => infoPages.map((p) => ({ slug: p.slug }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const page = getInfoPage(slug);
-  return page
-    ? { title: page.title, description: page.intro, alternates: { canonical: `/${slug}` } }
-    : {};
+  if (!page) notFound();
+  return { title: page.title, description: page.intro, alternates: { canonical: `/${slug}` } };
 }
 
 export default async function InfoPageView({ params }: Props) {

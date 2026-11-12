@@ -13,7 +13,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { slug } = await params;
   const page = Math.max(1, Number((await searchParams).page) || 1);
   const category = await getCategoryBySlug(slug);
-  if (!category) return {};
+  if (!category) notFound();
   return {
     title: category.name,
     description: category.description || `آخر الأخبار والتقارير في قسم ${category.name} من شُرفة.`,
