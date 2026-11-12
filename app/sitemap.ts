@@ -4,7 +4,7 @@ import { absoluteUrl } from "@/lib/seo";
 import { sitemapArticles, sitemapAuthors, sitemapCategories, sitemapTags } from "@/lib/queries";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
@@ -16,7 +16,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: path ? 0.4 : 1,
   }));
 
-  const [cats, arts, auths, tags] = await Promise.all([sitemapCategories(), sitemapArticles(), sitemapAuthors(), sitemapTags()]);
+  let cats: Awaited<ReturnType<typeof sitemapCategories>> = [];
+  let arts: Awaited<ReturnType<typeof sitemapArticles>> = [];
+  let auths: Awaited<ReturnType<typeof sitemapAuthors>> = [];
+  let tags: Awaited<ReturnType<typeof sitemapTags>> = [];
+  try {
+    [cats, arts, auths, tags] = await Promise.all([sitemapCategories(), sitemapArticles(), sitemapAuthors(), sitemapTags()]);
+  } catch {
+    return entries;
+  }
 
   entries.push(
     ...cats.map((c) => ({

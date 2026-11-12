@@ -17,12 +17,13 @@
     "scrape": "node scripts/scrape.mjs"
   },
   "dependencies": {
-    "fast-xml-parser": "5.11.2",
+    "fast-xml-parser": "^5.12.0",
     "lucide-react": "^1.52.0",
-    "next": "^16.3.8",
+    "next": "^16.4.5",
     "pg": "^8.23.1",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@types/node": "^20",

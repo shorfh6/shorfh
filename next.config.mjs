@@ -13,7 +13,13 @@ const nextConfig = {
 		if (process.env.NODE_ENV === "production") {
 			headers.push({ key: "Strict-Transport-Security", value: "max-age=31536000" });
 		}
-		return [{ source: "/:path*", headers }];
+		return [
+			{ source: "/:path*", headers },
+			{
+				source: "/(sitemap.xml|robots.txt)",
+				headers: [{ key: "Cache-Control", value: "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400" }],
+			},
+		];
 	},
 };
 
