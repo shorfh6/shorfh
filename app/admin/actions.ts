@@ -20,6 +20,7 @@ import { PLATFORMS } from "@/lib/social";
 import { deleteImage, getImage, putImage } from "@/lib/storage";
 import { assertPublicationApproved, lockPublicationScope, publicationFailure } from "@/lib/publication";
 import { siteOrigin } from "@/lib/seo";
+import { announceArticleOnX } from "@/lib/x";
 
 const str = (fd: FormData, k: string, max: number) => String(fd.get(k) ?? "").trim().slice(0, max);
 const num = (fd: FormData, k: string) => Number(fd.get(k)) || 0;
@@ -220,6 +221,7 @@ export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promis
     return fail(failure.message);
   }
   if (obsoleteDraftImage) await removeUploadIfUnused(obsoleteDraftImage);
+  if (status === "published") await announceArticleOnX(articleId);
 
   redirect(`/admin/articles/${articleId}?m=${status === "pending" && !reviewer ? "submitted" : existing ? "saved" : "created"}`);
 }
@@ -247,6 +249,7 @@ export async function approveArticle(fd: FormData) {
     redirect(`/admin/articles/${a.id}?e=${failure.code}`);
   }
   const back = String(fd.get("back") ?? "");
+  if (!alreadyPublished) await announceArticleOnX(a.id);
   redirect(`${back.startsWith("/admin/") && !back.includes("?") ? back : "/admin/articles"}?m=${alreadyPublished ? "already_published" : "approved"}`);
 }
 
@@ -295,6 +298,7 @@ export async function directPublishArticle(fd: FormData) {
     if (!failure) throw error;
     redirect(`${dest}?e=${failure.code}`);
   }
+  if (published) await announceArticleOnX(a.id);
   redirect(`${dest}?m=${published ? "approved" : "already_published"}`);
 }
 
