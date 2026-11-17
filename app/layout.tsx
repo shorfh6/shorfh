@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cairo, Reem_Kufi } from "next/font/google";
 import JsonLd from "@/components/JsonLd";
 import { absoluteUrl, siteOrigin } from "@/lib/seo";
@@ -22,6 +22,12 @@ export const metadata: Metadata = {
     url: "/",
   },
   twitter: { card: "summary_large_image", title: "شُرفة", description: "نافذتك إلى العالم وأخباره." },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#070d14",
 };
 
 const structuredData = {
