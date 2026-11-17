@@ -51,12 +51,12 @@ img{max-width:100%;height:auto}
 .cat{display:inline-block;color:var(--cyan);font-size:var(--fs-xs);font-weight:700;padding-right:8px;border-right:3px solid var(--cyan);line-height:1.1}
 
 /* hero */
-.feature .img{height:260px}
+.feature .img{height:260px;aspect-ratio:16/7}
+@media (max-width:700px){.feature .img{height:auto;aspect-ratio:16/9}}
 .feature-body{padding:14px 0 16px;border-bottom:1px solid var(--line);position:relative}
 .feature h1{font-size:var(--fs-h1);font-weight:800;line-height:1.4;margin:6px 0 10px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .feature p{color:#c4cfda;font-size:var(--fs-body);max-width:92%;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .btn{display:inline-block;background:var(--cyan);color:#04141f;font-weight:700;font-size:var(--fs-sm);padding:6px 20px;border-radius:3px;margin-top:10px}
-.feature-body .btn{position:absolute;left:0;bottom:16px}
 
 /* cards */
 .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
@@ -173,7 +173,8 @@ img{max-width:100%;height:auto}
   .search-form input{width:150px;max-width:100%}
   .article .img{height:auto;aspect-ratio:16/9}
   .author-box{flex-direction:column;align-items:flex-start}
-  .feature-body .btn{position:static}
+  .feature h1{font-size:22px}
+  .feature p{max-width:100%;font-size:15px}
   .foot-top,.foot-bottom{flex-direction:column;align-items:flex-start}
   .social{flex-wrap:wrap}
   .banner{width:calc(100% - 24px);max-width:none;aspect-ratio:auto;min-height:210px;background:linear-gradient(90deg,rgba(4,10,18,.86),rgba(4,10,18,.25) 55%,rgba(4,10,18,.72)),url('/earth-night-mobile.jpg') center/cover no-repeat}
