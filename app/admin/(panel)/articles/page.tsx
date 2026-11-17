@@ -3,6 +3,7 @@ import { canDeleteArticle, canReview, requireUser } from "@/lib/auth";
 import { getAuthors, getCategories, listArticles } from "@/lib/queries";
 import { coverStyle, formatDate, statusLabels } from "@/lib/format";
 import { absoluteUrl } from "@/lib/seo";
+import { composeArticleTweet } from "@/lib/x";
 import { approveArticle, assignArticleAuthor, deleteArticle, directPublishArticle } from "../../actions";
 import ConfirmButton from "@/components/admin/ConfirmButton";
 import Notice from "@/components/admin/Notice";
@@ -143,7 +144,7 @@ export default async function ArticlesPage({ searchParams }: Props) {
                           عرض
                         </Link>
                         <a
-                          href={`https://x.com/intent/post?text=${encodeURIComponent(`${a.title}\n\n${absoluteUrl(`/article/${a.id}`)}`)}`}
+                          href={`https://x.com/intent/post?text=${encodeURIComponent(composeArticleTweet({ title: a.title, excerpt: a.excerpt, hashtags: [a.category_name ?? ""], url: absoluteUrl(`/article/${a.id}`) }))}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
