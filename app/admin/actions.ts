@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   canDeleteArticle,
   canEditArticle,
@@ -19,6 +19,7 @@ import { getArticle, logActivity } from "@/lib/queries";
 import { PLATFORMS } from "@/lib/social";
 import { deleteImage, getImage, putImage } from "@/lib/storage";
 import { assertPublicationApproved, lockPublicationScope, publicationFailure } from "@/lib/publication";
+import { siteOrigin } from "@/lib/seo";
 
 const str = (fd: FormData, k: string, max: number) => String(fd.get(k) ?? "").trim().slice(0, max);
 const num = (fd: FormData, k: string) => Number(fd.get(k)) || 0;
@@ -238,6 +239,54 @@ export async function approveArticle(fd: FormData) {
   }
   const back = String(fd.get("back") ?? "");
   redirect(`${back.startsWith("/admin/") && !back.includes("?") ? back : "/admin/articles"}?m=${alreadyPublished ? "already_published" : "approved"}`);
+}
+
+async function storedImageSha256(name: string) {
+  const image = await getImage(name);
+  if (!image || (image.size ?? 0) > 5 * 1024 * 1024) return undefined;
+  const reader = image.body.getReader();
+  const hash = createHash("sha256");
+  let bytes = 0;
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    bytes += chunk.value.byteLength;
+    if (bytes > 5 * 1024 * 1024) return undefined;
+    hash.update(chunk.value);
+  }
+  return bytes ? hash.digest("hex") : undefined;
+}
+
+export async function directPublishArticle(fd: FormData) {
+  const user = await requireUser(["admin", "editor"]);
+  const a = await getArticle(num(fd, "id"));
+  if (!a) redirect("/admin/articles?e=notfound");
+  const back = String(fd.get("back") ?? "");
+  const dest = back.startsWith("/admin/") && !back.includes("?") ? back : "/admin/articles";
+  let published = false;
+  try {
+    await tx(async (q) => {
+      await lockPublicationScope(q);
+      const actor = await q.one<Pick<User, "id" | "name" | "role" | "status">>("SELECT id,name,role,status FROM users WHERE id=$1", [user.id]);
+      if (!actor || actor.status !== "active" || !canReview(actor.role)) throw new Error("RAAD_ACTION_FORBIDDEN");
+      const current = await q.one<{ id: number; status: string; title: string; image: string }>("SELECT id,status,title,image FROM articles WHERE id=$1 FOR UPDATE", [a.id]);
+      if (!current) throw new Error("RAAD_ARTICLE_NOT_FOUND");
+      if (current.status === "published") return;
+      const mediaSha256 = await storedImageSha256(current.image);
+      if (!mediaSha256) throw new Error("RAAD_MEDIA_CHANGED");
+      const proof = { final_agent: "editorial-panel", decision: "APPROVED", actor: `${actor.name}#${actor.id}`, media_sha256: mediaSha256, site: siteOrigin };
+      await q.one("SELECT raad_gate.record_editorial_approval($1,$2::jsonb,3600) AS id", [current.id, JSON.stringify(proof)]);
+      await assertPublicationApproved(q, current.id, getImage);
+      await q.exec("UPDATE articles SET status='published',published_at=COALESCE(published_at,$1),reject_reason='',updated_at=$1 WHERE id=$2", [now(), current.id]);
+      await q.exec("INSERT INTO activity(user_id,user_name,action,target) VALUES($1,$2,$3,$4)", [actor.id, actor.name, "نشر مباشر باعتماد تحريري", current.title]);
+      published = true;
+    });
+  } catch (error) {
+    const failure = publicationFailure(error);
+    if (!failure) throw error;
+    redirect(`${dest}?e=${failure.code}`);
+  }
+  redirect(`${dest}?m=${published ? "approved" : "already_published"}`);
 }
 
 export async function rejectArticle(fd: FormData) {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { canDeleteArticle, canReview, requireUser } from "@/lib/auth";
 import { getAuthors, getCategories, listArticles } from "@/lib/queries";
 import { coverStyle, formatDate, statusLabels } from "@/lib/format";
-import { approveArticle, deleteArticle } from "../../actions";
+import { approveArticle, deleteArticle, directPublishArticle } from "../../actions";
 import ConfirmButton from "@/components/admin/ConfirmButton";
 import Notice from "@/components/admin/Notice";
 import StatusBadge from "@/components/admin/StatusBadge";
@@ -119,12 +119,20 @@ export default async function ArticlesPage({ searchParams }: Props) {
                       </Link>
                     )}
                     {reviewer && a.status !== "published" && (
-                      <form action={approveArticle}>
-                        <input type="hidden" name="id" value={a.id} />
-                        <ConfirmButton message="نشر النسخة التي اجتازت المراجعات واعتمدها المعتمد؟" className="btn-link ok">
-                          نشر المعتمد
-                        </ConfirmButton>
-                      </form>
+                      <>
+                        <form action={directPublishArticle}>
+                          <input type="hidden" name="id" value={a.id} />
+                          <ConfirmButton message="تسجيل اعتمادك التحريري ونشر الخبر فورًا؟" className="btn-link ok">
+                            النشر مباشرة
+                          </ConfirmButton>
+                        </form>
+                        <form action={approveArticle}>
+                          <input type="hidden" name="id" value={a.id} />
+                          <ConfirmButton message="نشر النسخة التي اجتازت المراجعات واعتمدها المعتمد؟" className="btn-link ok">
+                            نشر المعتمد
+                          </ConfirmButton>
+                        </form>
+                      </>
                     )}
                     {canDeleteArticle(user, a) && (
                       <form action={deleteArticle}>

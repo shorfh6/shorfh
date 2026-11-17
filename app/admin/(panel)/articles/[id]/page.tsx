@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { canDeleteArticle, canEditArticle, canReview, requireUser } from "@/lib/auth";
 import { getArticle, getArticleTags, getAuthors, getCategories, getTags } from "@/lib/queries";
 import { formatDateTime } from "@/lib/format";
-import { approveArticle, deleteArticle, rejectArticle } from "../../../actions";
+import { approveArticle, deleteArticle, directPublishArticle, rejectArticle } from "../../../actions";
 import ArticleForm from "@/components/admin/ArticleForm";
 import ArticleBody from "@/components/ArticleBody";
 import ConfirmButton from "@/components/admin/ConfirmButton";
@@ -96,12 +96,20 @@ export default async function EditArticle({ params, searchParams }: Props) {
             <section className="card-a">
               <h3>المراجعة</h3>
               {a.status !== "published" && (
-                <form action={approveArticle}>
-                  <input type="hidden" name="id" value={a.id} />
-                  <input type="hidden" name="back" value={`/admin/articles/${a.id}`} />
-                  <button className="btn-ok block">نشر النسخة المعتمدة</button>
-                  <p className="muted">يلزم اعتماد مسجل مطابق لهذه النسخة؛ الضغط هنا لا ينشئ اعتمادًا.</p>
-                </form>
+                <>
+                  <form action={directPublishArticle}>
+                    <input type="hidden" name="id" value={a.id} />
+                    <input type="hidden" name="back" value={`/admin/articles/${a.id}`} />
+                    <button className="btn-ok block">النشر مباشرة</button>
+                    <p className="muted">يسجّل اعتمادك التحريري للنسخة الحالية وينشرها فورًا.</p>
+                  </form>
+                  <form action={approveArticle}>
+                    <input type="hidden" name="id" value={a.id} />
+                    <input type="hidden" name="back" value={`/admin/articles/${a.id}`} />
+                    <button className="btn-ghost block">نشر النسخة المعتمدة</button>
+                    <p className="muted">يلزم اعتماد مسجل مطابق لهذه النسخة؛ الضغط هنا لا ينشئ اعتمادًا.</p>
+                  </form>
+                </>
               )}
               {a.status !== "rejected" && (
                 <form action={rejectArticle} className="reject-form">
