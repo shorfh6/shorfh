@@ -2,6 +2,7 @@ import Link from "next/link";
 import { canDeleteArticle, canReview, requireUser } from "@/lib/auth";
 import { getAuthors, getCategories, listArticles } from "@/lib/queries";
 import { coverStyle, formatDate, statusLabels } from "@/lib/format";
+import { absoluteUrl } from "@/lib/seo";
 import { approveArticle, assignArticleAuthor, deleteArticle, directPublishArticle } from "../../actions";
 import ConfirmButton from "@/components/admin/ConfirmButton";
 import Notice from "@/components/admin/Notice";
@@ -137,9 +138,18 @@ export default async function ArticlesPage({ searchParams }: Props) {
                   <div className="row-actions">
                     <Link href={`/admin/articles/${a.id}`}>{reviewer && a.status === "pending" ? "مراجعة" : "تعديل"}</Link>
                     {a.status === "published" && (
-                      <Link href={`/article/${a.id}`} target="_blank">
-                        عرض
-                      </Link>
+                      <>
+                        <Link href={`/article/${a.id}`} target="_blank">
+                          عرض
+                        </Link>
+                        <a
+                          href={`https://x.com/intent/post?text=${encodeURIComponent(`${a.title}\n\n${absoluteUrl(`/article/${a.id}`)}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          مشاركة X
+                        </a>
+                      </>
                     )}
                     {reviewer && a.status !== "published" && (
                       <>
