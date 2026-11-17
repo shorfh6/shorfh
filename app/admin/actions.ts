@@ -153,6 +153,7 @@ export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promis
     image = saved;
     uploadedImage = saved;
   }
+  if (intent === "direct" && !/^[\w-]+\.(png|jpg|jpeg|webp)$/i.test(image)) return fail("النشر المباشر يتطلب صورة مرفوعة من الجهاز (وليس رابطًا خارجيًا).");
 
   let articleId = id;
   let status = "draft";
@@ -198,6 +199,14 @@ export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promis
       articleId = row?.id ?? 0;
     }
     await syncTags(q, articleId, tagIds, values.newTags);
+    if (intent === "direct" && reviewer && status !== "published" && articleId) {
+      const mediaSha256 = await storedImageSha256(image);
+      if (!mediaSha256) throw new Error("RAAD_MEDIA_CHANGED");
+      const proof = { final_agent: "editorial-panel", decision: "APPROVED", actor: `${actor.name}#${actor.id}`, media_sha256: mediaSha256, site: siteOrigin };
+      await q.one("SELECT raad_gate.record_editorial_approval($1,$2::jsonb,3600) AS id", [articleId, JSON.stringify(proof)]);
+      await q.exec("UPDATE articles SET status='published',published_at=COALESCE(published_at,$1),reject_reason='',updated_at=$1 WHERE id=$2", [now(), articleId]);
+      status = "published";
+    }
     if (status === "published") {
       const currentHash = (await q.one<{ hash: string }>("SELECT raad_gate.article_snapshot_hash($1) AS hash", [articleId]))?.hash;
       if (!previousPublishedHash || previousPublishedHash !== currentHash) await assertPublicationApproved(q, articleId, getImage);
@@ -287,6 +296,33 @@ export async function directPublishArticle(fd: FormData) {
     redirect(`${dest}?e=${failure.code}`);
   }
   redirect(`${dest}?m=${published ? "approved" : "already_published"}`);
+}
+
+export async function assignArticleAuthor(fd: FormData) {
+  const user = await requireUser(["admin", "editor"]);
+  const a = await getArticle(num(fd, "id"));
+  if (!a) redirect("/admin/articles?e=notfound");
+  const authorId = num(fd, "author");
+  if (!authorId) redirect("/admin/articles?e=invalid");
+  try {
+    await tx(async (q) => {
+      await lockPublicationScope(q);
+      const actor = await q.one<Pick<User, "id" | "name" | "role" | "status">>("SELECT id,name,role,status FROM users WHERE id=$1", [user.id]);
+      if (!actor || actor.status !== "active" || !canReview(actor.role)) throw new Error("RAAD_ACTION_FORBIDDEN");
+      const author = await q.one<{ id: number; name: string }>("SELECT id,name FROM users WHERE id=$1 AND status='active'", [authorId]);
+      if (!author) throw new Error("RAAD_ARTICLE_NOT_FOUND");
+      const current = await q.one<{ id: number; status: string; title: string }>("SELECT id,status,title FROM articles WHERE id=$1 FOR UPDATE", [a.id]);
+      if (!current) throw new Error("RAAD_ARTICLE_NOT_FOUND");
+      if (current.status === "published") throw new Error("RAAD_PUBLISHED_EDIT_BLOCKED");
+      await q.exec("UPDATE articles SET author_id=$1, updated_at=$2 WHERE id=$3", [author.id, now(), current.id]);
+      await q.exec("INSERT INTO activity(user_id,user_name,action,target) VALUES($1,$2,$3,$4)", [actor.id, actor.name, `إسناد الخبر إلى ${author.name}`, current.title]);
+    });
+  } catch (error) {
+    const failure = publicationFailure(error);
+    if (!failure) throw error;
+    redirect(`/admin/articles?e=${failure.code}`);
+  }
+  redirect("/admin/articles?m=assigned");
 }
 
 export async function rejectArticle(fd: FormData) {

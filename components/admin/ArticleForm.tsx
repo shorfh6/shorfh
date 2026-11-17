@@ -118,6 +118,9 @@ export default function ArticleForm({ article, categories, tags, selectedTagIds,
             <button name="intent" value="save" className="btn-primary" disabled={pending}>
               حفظ
             </button>
+            <button name="intent" value="direct" className="btn-ok" disabled={pending}>
+              النشر مباشرة
+            </button>
             {article && <button name="intent" value="publish" className="btn-ok" disabled={pending}>
               نشر النسخة المعتمدة
             </button>}
@@ -138,7 +141,7 @@ export default function ArticleForm({ article, categories, tags, selectedTagIds,
           </>
         )}
       </div>
-      {reviewer && <p className="muted">النشر يتطلب اعتمادًا مسجلًا مطابقًا للنص والصورة والتصنيف والوسوم. هذا الزر لا ينشئ اعتمادًا. احفظ التعديلات كمسودة ثم أعد المراجعة.</p>}
+      {reviewer && <p className="muted">«النشر مباشرة» يسجّل اعتمادك التحريري وينشر فورًا، ويتطلب نصًا وموجزًا وصورة مرفوعة من الجهاز. «نشر النسخة المعتمدة» لمواد اجتازت اعتمادًا مسجلًا مسبقًا.</p>}
     </form>
   );
 }

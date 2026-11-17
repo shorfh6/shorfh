@@ -2,7 +2,7 @@ import Link from "next/link";
 import { canDeleteArticle, canReview, requireUser } from "@/lib/auth";
 import { getAuthors, getCategories, listArticles } from "@/lib/queries";
 import { coverStyle, formatDate, statusLabels } from "@/lib/format";
-import { approveArticle, deleteArticle, directPublishArticle } from "../../actions";
+import { approveArticle, assignArticleAuthor, deleteArticle, directPublishArticle } from "../../actions";
 import ConfirmButton from "@/components/admin/ConfirmButton";
 import Notice from "@/components/admin/Notice";
 import StatusBadge from "@/components/admin/StatusBadge";
@@ -104,7 +104,30 @@ export default async function ArticlesPage({ searchParams }: Props) {
                   </div>
                 </td>
                 <td>{a.category_name}</td>
-                <td>{a.author_name ?? "—"}</td>
+                <td>
+                  {reviewer && a.status !== "published" ? (
+                    <form action={assignArticleAuthor} className="inline">
+                      <input type="hidden" name="id" value={a.id} />
+                      <select name="author" defaultValue={a.author_id ?? ""} required>
+                        {a.author_id == null && (
+                          <option value="" disabled>
+                            —
+                          </option>
+                        )}
+                        {authorList.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="btn-ghost" title="تعيين الكاتب">
+                        تعيين
+                      </button>
+                    </form>
+                  ) : (
+                    (a.author_name ?? "—")
+                  )}
+                </td>
                 <td>
                   <StatusBadge status={a.status} />
                 </td>

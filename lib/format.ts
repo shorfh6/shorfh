@@ -12,7 +12,7 @@ export const imageUrl = (img: string) => (!img ? "" : /^https?:\/\//.test(img) ?
 export const coverStyle = (img: string) => (img ? { backgroundImage: `url("${imageUrl(img)}")` } : undefined);
 
 export function articleImageAlt(article: { title: string; body?: string }) {
-  const caption = article.body?.split(/\r?\n/).find((line) => /^الصورة بطاقة توضيحية أصلية من شُرفة/.test(line.trim()));
+  const caption = article.body?.split(/\r?\n/).find((line) => /^(?:الصورة بطاقة توضيحية أصلية من شُرفة|الصورة: صورة فوتوغرافية أرشيفية)/.test(line.trim()));
   return caption?.trim().slice(0, 500) || article.title;
 }
 
@@ -32,6 +32,7 @@ const messages: Record<string, string> = {
   created: "تمت الإضافة بنجاح",
   deleted: "تم الحذف",
   approved: "تم نشر النسخة المعتمدة",
+  assigned: "تم تعيين الكاتب",
   already_published: "المادة منشورة بالفعل؛ لم يُكرر النشر",
   rejected: "تم رفض الخبر وإشعار الكاتب بالسبب",
   submitted: "تم إرسال الخبر للمراجعة",
