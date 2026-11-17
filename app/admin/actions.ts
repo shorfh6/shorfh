@@ -91,6 +91,25 @@ async function saveUpload(file: File): Promise<string | null> {
   return name;
 }
 
+async function saveRemoteImage(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(encodeURI(url), { headers: { "user-agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length === 0 || buf.length > 5 * 1024 * 1024) return null;
+    let ext = "";
+    if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) ext = ".jpg";
+    else if (buf.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) ext = ".png";
+    else if (buf.subarray(0, 4).toString() === "RIFF" && buf.subarray(8, 12).toString() === "WEBP") ext = ".webp";
+    if (!ext) return null;
+    const name = `${randomBytes(12).toString("hex")}${ext}`;
+    await putImage(name, buf, MIME_BY_EXT[ext]);
+    return name;
+  } catch {
+    return null;
+  }
+}
+
 async function removeUploadIfUnused(name: string) {
   if (!name || /^https?:\/\//.test(name) || !/^[\w.-]+$/.test(name)) return;
   if (await one("SELECT 1 FROM articles WHERE image = $1", [name])) return;
@@ -154,7 +173,13 @@ export async function saveArticle(_prev: ArticleFormState, fd: FormData): Promis
     image = saved;
     uploadedImage = saved;
   }
-  if (intent === "direct" && !/^[\w-]+\.(png|jpg|jpeg|webp)$/i.test(image)) return fail("النشر المباشر يتطلب صورة مرفوعة من الجهاز (وليس رابطًا خارجيًا).");
+  if (intent === "direct" && /^https:\/\//.test(image)) {
+    const saved = await saveRemoteImage(image);
+    if (!saved) return fail("تعذر تنزيل الصورة من الرابط الخارجي — ارفع الصورة من الجهاز أو تحقق من الرابط.");
+    image = saved;
+    uploadedImage = saved;
+  }
+  if (intent === "direct" && !/^[\w-]+\.(png|jpg|jpeg|webp)$/i.test(image)) return fail("النشر المباشر يتطلب صورة مرفوعة أو رابط صورة يبدأ بـ https.");
 
   let articleId = id;
   let status = "draft";
@@ -284,7 +309,14 @@ export async function directPublishArticle(fd: FormData) {
       const current = await q.one<{ id: number; status: string; title: string; image: string }>("SELECT id,status,title,image FROM articles WHERE id=$1 FOR UPDATE", [a.id]);
       if (!current) throw new Error("RAAD_ARTICLE_NOT_FOUND");
       if (current.status === "published") return;
-      const mediaSha256 = await storedImageSha256(current.image);
+      let image = current.image;
+      if (/^https:\/\//.test(image)) {
+        const saved = await saveRemoteImage(image);
+        if (!saved) throw new Error("RAAD_MEDIA_CHANGED");
+        await q.exec("UPDATE articles SET image=$1, updated_at=$2 WHERE id=$3", [saved, now(), current.id]);
+        image = saved;
+      }
+      const mediaSha256 = await storedImageSha256(image);
       if (!mediaSha256) throw new Error("RAAD_MEDIA_CHANGED");
       const proof = { final_agent: "editorial-panel", decision: "APPROVED", actor: `${actor.name}#${actor.id}`, media_sha256: mediaSha256, site: siteOrigin };
       await q.one("SELECT raad_gate.record_editorial_approval($1,$2::jsonb,3600) AS id", [current.id, JSON.stringify(proof)]);
