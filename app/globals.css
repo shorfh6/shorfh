@@ -125,6 +125,10 @@ img{max-width:100%;height:auto}
 .prev-next .next{text-align:left}
 .pager{display:flex;justify-content:center;align-items:center;gap:16px;margin:24px 0;font-size:var(--fs-sm)}
 .pager a{background:var(--panel);border:1px solid var(--line);padding:6px 16px;border-radius:6px;color:var(--cyan)}
+.feed-more{display:flex;justify-content:center;margin:18px 0 6px}
+.pager-link{background:var(--panel);border:1px solid var(--line);color:var(--cyan);padding:8px 26px;border-radius:6px;font-size:var(--fs-sm);font-weight:700;cursor:pointer}
+.pager-link:hover{border-color:var(--cyan)}
+.pager-link:disabled{color:var(--muted);cursor:wait}
 .author-box{display:flex;gap:16px;align-items:center;background:var(--panel);border:1px solid var(--line);padding:18px;margin:10px 0 6px}
 .author-box h1{font-size:var(--fs-h2);font-weight:800;margin-bottom:4px}
 .author-box h3{font-size:var(--fs-lead);font-weight:800}

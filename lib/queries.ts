@@ -164,11 +164,15 @@ export async function homeData() {
     (await listArticles({ ...pub, featured: true, limit: 1 })).rows[0] ??
     (await listArticles({ ...pub, exclusive: false, limit: 1 })).rows[0];
   const used = featured ? [featured.id] : [];
-  const secondary = (await listArticles({ ...pub, exclusive: false, excludeIds: used, limit: 3 })).rows;
+  const secondary = (await listArticles({ ...pub, exclusive: false, excludeIds: used, limit: 6 })).rows;
   used.push(...secondary.map((a) => a.id));
-  const latest = (await listArticles({ ...pub, exclusive: false, excludeIds: used, limit: 5 })).rows;
+  const latest = (await listArticles({ ...pub, exclusive: false, excludeIds: used, limit: 10 })).rows;
+  used.push(...latest.map((a) => a.id));
   const exclusives = (await listArticles({ ...pub, exclusive: true, excludeIds: featured ? [featured.id] : [], limit: 3 })).rows;
-  return { featured, secondary, latest, exclusives };
+  used.push(...exclusives.map((a) => a.id));
+  const feed = await listArticles({ ...pub, excludeIds: used, limit: 9 });
+  used.push(...feed.rows.map((a) => a.id));
+  return { featured, secondary, latest, exclusives, feed, usedIds: used };
 }
 
 export function logActivity(user: { id: number; name: string }, action: string, target = "") {

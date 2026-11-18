@@ -2,12 +2,13 @@ import Link from "next/link";
 import Image from "next/image";
 import ArticleCard from "@/components/ArticleCard";
 import LatestNews from "@/components/LatestNews";
+import InfiniteFeed from "@/components/InfiniteFeed";
 import Banner from "@/components/Banner";
 import { homeData } from "@/lib/queries";
 import { imageUrl } from "@/lib/format";
 
 export default async function Home() {
-  const { featured: hero, secondary, latest, exclusives } = await homeData();
+  const { featured: hero, secondary, latest, exclusives, feed, usedIds } = await homeData();
 
   return (
     <>
@@ -58,6 +59,16 @@ export default async function Home() {
           </div>
         </section>
       )}
+
+      <section className="wrap exclusive">
+        <div className="sec-head">
+          <h2 className="sec-title">كل الأخبار</h2>
+          <Link href="/search" className="link">
+            ‹ بحث متقدم
+          </Link>
+        </div>
+        <InfiniteFeed initial={feed.rows} initialHasMore={feed.rows.length < feed.total} excludeIds={usedIds} />
+      </section>
 
       <Banner />
     </>
